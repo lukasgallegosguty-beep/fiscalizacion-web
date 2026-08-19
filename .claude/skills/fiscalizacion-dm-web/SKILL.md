@@ -42,6 +42,69 @@ Cuando el usuario escriba **"Activa fiscalización web"** (o variantes como "act
 
 5. **Si el usuario sube un Excel con la columna "Decisión final" completada**, analizarlo según la sección "Ciclo de retroalimentación" de esta skill.
 
+## Modo rutina automatizada (desatendida)
+
+Cuando esta skill se ejecuta desde una **rutina programada** (sin una persona
+mirando), no hay nadie a quien preguntarle nada y **el contenedor se destruye al
+terminar**: todo archivo que no quede empujado a GitHub se pierde. El orden de
+los pasos cambia respecto del modo conversacional, y ese orden es obligatorio.
+
+### Paso 0 — Preflight de persistencia (SIEMPRE PRIMERO)
+
+**Antes de gastar una sola búsqueda web**, comprobar que el resultado se va a
+poder guardar:
+
+```bash
+bash scripts/preflight.sh
+```
+
+- **Sale 0** → hay permiso de escritura. Continuar con la rutina normal.
+- **Sale 1** → no hay permiso de escritura. **Abortar la fiscalización de
+  inmediato** y notificar el problema con el diagnóstico que imprime el script.
+
+Nunca ejecutar el flujo completo cuando el preflight falla. Una jornada de
+búsqueda que no se puede persistir es trabajo destruido, y volver a intentar el
+`git push` al final no cambia el resultado: el permiso no aparece solo.
+
+### Paso 0-bis — Resolver qué categoría toca hoy
+
+No deducir la categoría listando el directorio a ojo. El orden de `ls` depende
+de la *collation* del sistema y los nombres de archivo del ISP **llevan la fecha
+embebida**, así que cambian en cada actualización y no sirven como clave de
+estado. Usar el motor de rotación:
+
+```bash
+python3 scripts/rotacion.py --json
+```
+
+Devuelve la categoría que corresponde, el Excel ISP vigente, la hoja a leer, la
+ruta de salida ya construida y el último reporte previo de esa misma categoría
+(para el ciclo de retroalimentación del Paso 2 de la rutina).
+
+### Paso 5-bis — Persistir en Git (OBLIGATORIO)
+
+Al terminar, en este orden:
+
+```bash
+python3 scripts/rotacion.py --avanzar --hallazgos <N>   # actualiza el estado
+git add resultados/ estado-rotacion.json
+git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
+git push -u origin <rama>   # la rutina la fija en su prompt
+```
+
+**Verificar que el push terminó bien** (`git status` debe quedar sin commits
+pendientes de subir). Si falla, decirlo explícitamente en la notificación con el
+error textual — nunca terminar en silencio dando por hecho que se guardó.
+
+Registrar la categoría como procesada **solo si el push tuvo éxito**. Si se
+avanza el estado y el push falla, la categoría queda marcada como hecha sin que
+exista el reporte, y la rotación se la salta en el ciclo siguiente.
+
+### Adjuntar el reporte a la notificación
+
+Aunque el push funcione, adjuntar el `.xlsx` generado en la notificación final.
+Es la única copia que sobrevive si algo falla en la persistencia.
+
 ## Contexto regulatorio
 
 En Chile, ciertos dispositivos médicos requieren registro sanitario ante el ISP para poder ser comercializados. El ISP publica listados oficiales de DM con registro vigente, organizados por categoría. Productos ofertados sin figurar en estos listados representan potenciales infracciones regulatorias.
@@ -148,6 +211,29 @@ Cada hallazgo registrado en el reporte DEBE corresponder a una **publicación in
 
 Si una página de resultados de búsqueda de un marketplace muestra marcas de interés en los filtros laterales (ej: marcas como "All Test", "Hightop" en Mercado Libre), usa esa información para hacer búsquedas más específicas que lleguen a publicaciones individuales. No incluyas la página de resultados como hallazgo en la hoja principal.
 
+#### REGLA CRÍTICA: Solo ofertas con alcance en Chile
+
+La competencia fiscalizadora de ANDIM alcanza a los productos **ofertados en
+Chile**. Una tienda extranjera que no vende ni despacha a Chile queda fuera de
+alcance, por más que su producto no figure en el listado ISP.
+
+**Antes de registrar un hallazgo, confirmar al menos uno de estos indicios:**
+- Dominio `.cl`, o sitio con versión/tienda explícita para Chile.
+- Precios en pesos chilenos (CLP, `$` con formato chileno).
+- Despacho, retiro, cobertura o direcciones declaradas en Chile.
+- Datos de la empresa en Chile (RUT, dirección, teléfono +56).
+
+**Descartar** los sitios cuya operación es de otro país (México, Venezuela,
+España, Estados Unidos, etc.) sin evidencia de venta a Chile. Estos casos **no
+se registran como hallazgo**, pero conviene dejarlos anotados en el resumen de
+texto bajo "Descartados por jurisdicción", con el motivo, para que quede trazable
+por qué no aparecen en el Excel y no se vuelvan a revisar en la corrida siguiente.
+
+Cuidado con los buscadores: una consulta en español devuelve muchísimo resultado
+de tiendas mexicanas y españolas que se parecen a lo buscado pero no venden en
+Chile. Acotar las queries con `Chile`, `site:.cl` o `precio CLP` reduce bastante
+ese ruido.
+
 #### Hallazgos en marketplaces con acceso restringido (robots.txt)
 
 Algunos marketplaces (Mercado Libre, Falabella, Ripley, entre otros) bloquean el acceso directo a publicaciones individuales mediante robots.txt. Cuando esto ocurra, la información visible en las páginas de resultados de búsqueda sigue siendo valiosa para el fiscalizador. En estos casos:
@@ -253,9 +339,28 @@ La columna Observaciones debe aportar contexto útil al fiscalizador. Ejemplos d
 - Columna "Clasificación": fondo verde claro para REGISTRADO, fondo rojo claro para NO REGISTRADO
 - Columna "Decisión final" con fondo amarillo claro para señalar que requiere input humano
 - Ancho de columnas autoajustado
-- Nombre de archivo: `Fiscalizacion_Web_DM_[CATEGORIA]_[FECHA].xlsx`
+- Nombre de archivo: `Fiscalizacion_Web_DM_[CATEGORIA]_[DD-MM-YYYY].xlsx`, donde
+  `[CATEGORIA]` es el **slug estable** de la categoría (el campo `slug` que devuelve
+  `scripts/rotacion.py`, p. ej. `kits-vih-profesional`), no el nombre largo. Usar el
+  slug mantiene los reportes de una misma categoría agrupados y permite que la rutina
+  encuentre el reporte anterior para el ciclo de retroalimentación.
 
-Para la generación del Excel, consulta la skill `/mnt/skills/public/xlsx/SKILL.md` para seguir las mejores prácticas de formato.
+**Generación del archivo.** No reescribir el generador en cada corrida: el
+repositorio incluye `scripts/generar_reporte.py`, que ya produce este formato
+exacto (las 10 columnas, la hoja "Búsquedas Marketplace", los colores y la fila
+"Sin hallazgos"). Se le pasa un JSON con los hallazgos:
+
+```bash
+python3 scripts/generar_reporte.py --entrada hallazgos.json --auto
+```
+
+`--auto` deduce la categoría, la fecha y la ruta de salida desde
+`scripts/rotacion.py`. Si no hay hallazgos, basta con `"hallazgos": []`: el script
+emite igualmente el archivo con la fila "Sin hallazgos" y la fecha de revisión,
+que es lo que deja constancia de que la categoría sí se revisó ese día.
+
+Para casos fuera de este formato estándar, consulta la skill
+`/mnt/skills/public/xlsx/SKILL.md`.
 
 #### B) Resumen en texto
 
@@ -277,6 +382,13 @@ El campo "Decisión final" del Excel permite al fiscalizador registrar su evalua
 
 **Aprendizajes de retroalimentaciones anteriores:**
 - Distinguir entre test de autodiagnóstico (autotest) y test de uso profesional. Son categorías regulatorias distintas. Si un producto parece ser de uso profesional, anotar en Observaciones.
+- **Alcance territorial**: los resultados de buscadores mezclan tiendas de México,
+  Venezuela, España y EE.UU. con las chilenas. Un producto de marca no registrada
+  en una tienda que no vende a Chile **no es hallazgo**; descartarlo y dejar
+  constancia del descarte en el resumen (ver "Solo ofertas con alcance en Chile").
+- **Marketplaces bloqueados**: Mercado Libre y Falabella devuelven 403 a la
+  obtención directa de publicaciones. No insistir ni tratarlo como error de la
+  corrida: registrar lo observable en la hoja "Búsquedas Marketplace" y seguir.
 - Algunos productos pueden tener registro sanitario en una categoría distinta a la que se está fiscalizando (ej: un test VIH de uso profesional tiene registro en la lista de Kits VIH profesional, no en la de Autotest). Verificar cruzando con las listas de categorías relacionadas.
 
 Cuando el usuario proporcione un Excel con la columna "Decisión final" completada, analiza las discrepancias entre la clasificación automática y la decisión del fiscalizador, e identifica patrones para proponer mejoras a la skill.
