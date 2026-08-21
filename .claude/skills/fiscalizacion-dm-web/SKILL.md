@@ -66,27 +66,86 @@ Nunca ejecutar el flujo completo cuando el preflight falla. Una jornada de
 búsqueda que no se puede persistir es trabajo destruido, y volver a intentar el
 `git push` al final no cambia el resultado: el permiso no aparece solo.
 
-### Paso 0-bis — Resolver qué categoría toca hoy
+### Paso 0-bis — Resolver qué toca hoy
 
-No deducir la categoría listando el directorio a ojo. El orden de `ls` depende
-de la *collation* del sistema y los nombres de archivo del ISP **llevan la fecha
-embebida**, así que cambian en cada actualización y no sirven como clave de
-estado. Usar el motor de rotación:
+La asignación es por **calendario fijo**, dos categorías por día hábil, en dos
+bloques independientes. No la deduzcas listando el directorio:
 
 ```bash
-python3 scripts/rotacion.py --json
+python3 scripts/rotacion.py --slot 1 --json    # o --slot 2
 ```
 
-Devuelve la categoría que corresponde, el Excel ISP vigente, la hoja a leer, la
-ruta de salida ya construida y el último reporte previo de esa misma categoría
-(para el ciclo de retroalimentación del Paso 2 de la rutina).
+Devuelve la categoría, el Excel ISP vigente, la hoja, la ruta de salida, el
+inspector que revisa esta semana y los reportes previos ya revisados.
+
+| Día | Bloque 1 | Bloque 2 |
+|---|---|---|
+| Lunes | Agujas hipodérmicas | Autotest VIH |
+| Martes | Desfibriladores (DEA) | Guantes de examinación |
+| Miércoles | Guantes quirúrgicos | Jeringas con agujas |
+| Jueves | Jeringas hipodérmicas | Kits VIH uso profesional |
+| Viernes | Preservativos masculinos | Preservativos femeninos |
+
+En sábado o domingo el comando devuelve `"habil": false` y sale con código 3: no
+hay fiscalización programada, hay que terminar sin generar nada.
+
+### Paso 0-ter — Leer lo que revisaron los inspectores
+
+```bash
+python3 scripts/feedback.py --categoria <slug> --json
+```
+
+Lee los Excel que los inspectores dejaron en `revision/` y devuelve cuatro cosas
+que **son de uso obligatorio** en la corrida:
+
+1. `urls_excluidas` — enlaces que un inspector ya evaluó. **No volver a
+   reportarlos**, aunque sigan activos y sigan siendo infracción. Ya están en el
+   circuito; repetirlos le hace perder tiempo al inspector.
+2. `falsos_positivos` — la rutina acusó y el inspector desmintió. El criterio de
+   cruce está **demasiado estricto**: ampliar la coincidencia flexible (variantes
+   de marca, razón social del titular, nombres comerciales alternativos).
+3. `falsos_negativos` — la rutina dio por registrado algo que sí era infracción.
+   El criterio está **demasiado laxo**: verificar vigencia del registro, no solo
+   que la marca aparezca en el listado.
+4. `instrucciones_inspector` — texto libre que escribió el inspector. Tratarlo
+   como indicación operativa: sitios que pidió mirar, marcas a vigilar, criterios
+   a afinar. Si contradice a esta skill, **manda el inspector**.
+
+### Objetivo de volumen y mezcla
+
+Cada corrida apunta a **20 hallazgos**, con una mezcla esperada de **60% NO
+REGISTRADO y 40% REGISTRADO**.
+
+Eso es un **objetivo de esfuerzo de búsqueda**, no una cuota que haya que
+rellenar. La diferencia es la que separa una fiscalización de un informe
+inventado, así que es importante:
+
+- **Sí**: seguir buscando hasta llegar a 20. Agotar las capas de búsqueda, probar
+  sinónimos y variantes en inglés, recorrer más tiendas, revisar más páginas de
+  resultados, bajar a publicaciones individuales que antes se descartaron por
+  pereza. Que la corrida anterior encontrara 3 casi siempre significa que faltó
+  buscar, no que no exista más.
+- **Nunca**: inventar hallazgos, repetir una URL para inflar el conteo, registrar
+  páginas de búsqueda como si fueran publicaciones, incluir tiendas extranjeras
+  que no venden a Chile, ni **reclasificar un producto para que calce el 60/40**.
+
+La clasificación sale del cruce con el listado ISP y de nada más. Si al agotar la
+búsqueda hay 12 hallazgos, o si salen 90% no registrados, **se reporta eso**, con
+una nota de qué se buscó y hasta dónde se llegó. Un número real bajo es un dato
+útil para el inspector; uno inflado le hace abrir un sumario contra un oferente
+que no corresponde.
+
+La proporción 60/40 sirve además como señal de calidad: si todo sale NO
+REGISTRADO, lo más probable es que el cruce esté fallando —revisar antes de
+reportar—, y si todo sale REGISTRADO, la búsqueda se quedó en las tiendas
+grandes y formales.
 
 ### Paso 5-bis — Persistir en Git (OBLIGATORIO)
 
 Al terminar, en este orden:
 
 ```bash
-python3 scripts/rotacion.py --avanzar --hallazgos <N>   # actualiza el estado
+python3 scripts/rotacion.py --slot <N> --avanzar --hallazgos <M>   # actualiza el estado
 git add resultados/ estado-rotacion.json
 git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
 git push -u origin <rama>   # la rutina la fija en su prompt
@@ -99,6 +158,27 @@ error textual — nunca terminar en silencio dando por hecho que se guardó.
 Registrar la categoría como procesada **solo si el push tuvo éxito**. Si se
 avanza el estado y el push falla, la categoría queda marcada como hecha sin que
 exista el reporte, y la rotación se la salta en el ciclo siguiente.
+
+### Paso 5-ter — Enviar el reporte al inspector de la semana
+
+Después de que el push haya quedado confirmado, enviar el `.xlsx` por Gmail al
+inspector que devuelve `scripts/rotacion.py` en el campo `inspector`. Rota cada
+tres semanas; no fijarlo a mano.
+
+- **Asunto**: `Fiscalización web DM — <Categoría> — <DD-MM-YYYY>`
+- **Cuerpo**: categoría y fecha, total de hallazgos con el desglose por
+  clasificación, si se alcanzó el objetivo de 20 (y si no, por qué), los 3 casos
+  más relevantes, los descartados por jurisdicción y los marketplaces que
+  bloquearon el acceso. Cerrar recordando que las columnas "Decisión final" y
+  "Observaciones del inspector" se completan y el archivo se sube a `revision/`.
+- **Adjunto**: el `.xlsx` generado.
+
+Enviar **un correo por bloque**, no uno diario con los dos: cada Excel viaja con
+su propio contexto.
+
+Si el envío falla, decirlo en la notificación con el error. No es motivo para
+deshacer el commit: el reporte ya está en el repositorio y el inspector puede
+tomarlo de ahí.
 
 ### Adjuntar el reporte a la notificación
 
@@ -244,6 +324,10 @@ Algunos marketplaces (Mercado Libre, Falabella, Ripley, entre otros) bloquean el
    - **Palabras clave usadas**: Query de búsqueda utilizada
    - **Marcas detectadas en filtros**: Marcas que aparecen en los filtros laterales del marketplace
    - **Cantidad aprox. de publicaciones**: Número de resultados indicado por el marketplace
+   - **Observaciones del inspector**: Dejar en blanco. Texto libre que completa el
+     inspector y que se lee en la corrida siguiente. Esta hoja **no lleva columna
+     "Decisión final"**: son pistas para investigación manual, no hallazgos
+     clasificados.
    - **Observaciones para el fiscalizador**: Descripción detallada de lo observado, incluyendo:
      - Qué marcas aparecen y cuántas publicaciones tiene cada una
      - Cuáles de esas marcas NO figuran en el listado ISP (marcar como prioritarias)
@@ -322,6 +406,7 @@ Crea un archivo `.xlsx` con las siguientes columnas exactas, en este orden:
 | 8 | Clasificación | REGISTRADO / NO REGISTRADO |
 | 9 | Observaciones | Notas y consejos para el fiscalizador (ver guía abajo) |
 | 10 | Decisión final | **Dejar en blanco** — Campo reservado para el feedback manual del fiscalizador |
+| 11 | Observaciones del inspector | **Dejar en blanco** — Texto libre del inspector. Se lee en la corrida siguiente como indicación operativa. |
 
 **Guía para la columna Observaciones:**
 La columna Observaciones debe aportar contexto útil al fiscalizador. Ejemplos de lo que incluir:
@@ -351,10 +436,10 @@ exacto (las 10 columnas, la hoja "Búsquedas Marketplace", los colores y la fila
 "Sin hallazgos"). Se le pasa un JSON con los hallazgos:
 
 ```bash
-python3 scripts/generar_reporte.py --entrada hallazgos.json --auto
+python3 scripts/generar_reporte.py --entrada hallazgos.json --auto --slot 1
 ```
 
-`--auto` deduce la categoría, la fecha y la ruta de salida desde
+`--auto --slot N` deduce la categoría, la fecha y la ruta de salida desde
 `scripts/rotacion.py`. Si no hay hallazgos, basta con `"hallazgos": []`: el script
 emite igualmente el archivo con la fila "Sin hallazgos" y la fecha de revisión,
 que es lo que deja constancia de que la categoría sí se revisó ese día.
@@ -374,7 +459,13 @@ Después de presentar el Excel, proporciona un resumen conciso en el chat que in
 
 ## Ciclo de retroalimentación
 
-El campo "Decisión final" del Excel permite al fiscalizador registrar su evaluación manual de cada caso. Este feedback es valioso para mejorar la skill:
+El feedback dejó de ser manual: los inspectores suben los Excel completados a la
+carpeta `revision/` del repositorio y `scripts/feedback.py` los lee al inicio de
+cada corrida (ver "Paso 0-ter"). Las URL ya evaluadas se excluyen automáticamente
+y las correcciones del inspector ajustan el criterio de cruce.
+
+Los campos "Decisión final" y "Observaciones del inspector" permiten registrar la
+evaluación manual de cada caso. Este feedback es valioso para mejorar la skill:
 
 - Si el fiscalizador marca un caso que la skill clasificó como NO REGISTRADO pero que en realidad sí lo está (falso negativo), esto indica que los criterios de coincidencia deben ampliarse.
 - Si el fiscalizador marca un caso como NO REGISTRADO que la skill clasificó como REGISTRADO (falso positivo), esto indica que los criterios de coincidencia son demasiado laxos.

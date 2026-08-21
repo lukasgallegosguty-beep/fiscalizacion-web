@@ -3,9 +3,11 @@
 Repositorio de la rutina de Claude Code con la skill de **fiscalización web de
 dispositivos médicos** (ISP / ANDIM, Chile).
 
-La rutina revisa una categoría de DM por día, cruza las ofertas encontradas en
-la web contra el listado ISP vigente de esa categoría, y deja el resultado como
-un Excel en `resultados/`.
+Dos rutinas revisan **dos categorías por día hábil** (un bloque cada una), cruzan
+las ofertas encontradas en la web contra el listado ISP vigente, dejan el Excel en
+`resultados/` y lo envían por correo al inspector de turno. Los inspectores
+devuelven los archivos revisados a `revision/`, y ese feedback entra en la corrida
+siguiente.
 
 ## Estructura
 
@@ -13,7 +15,9 @@ un Excel en `resultados/`.
 .claude/skills/fiscalizacion-dm-web/   Skill (copia versionada, ver nota abajo)
 registros-isp/                         Excel oficiales del ISP, uno por categoría
 resultados/                            Reportes generados, uno por corrida
-scripts/rotacion.py                    Qué categoría toca hoy
+revision/                              Excel ya revisados por los inspectores
+scripts/rotacion.py                    Qué categorías tocan hoy (calendario)
+scripts/feedback.py                    Lee revision/ y alimenta la búsqueda
 scripts/generar_reporte.py             Genera el Excel en el formato estándar
 scripts/preflight.sh                   Verifica que se va a poder guardar
 estado-rotacion.json                   Última categoría procesada + historial
@@ -23,32 +27,53 @@ RUTINA.md                              Prompt de la rutina programada
 ## Uso manual
 
 ```bash
-bash scripts/preflight.sh                 # ¿se va a poder guardar el resultado?
-python3 scripts/rotacion.py               # qué categoría toca hoy
-python3 scripts/rotacion.py --estado      # cobertura: qué se revisó y qué falta
-python3 scripts/generar_reporte.py --entrada hallazgos.json --auto
-python3 scripts/rotacion.py --avanzar --hallazgos 3
+bash scripts/preflight.sh main               # ¿se va a poder guardar el resultado?
+python3 scripts/rotacion.py --slot 1         # categoría del bloque 1 de hoy
+python3 scripts/rotacion.py --semana         # plan completo de la semana
+python3 scripts/rotacion.py --estado         # cobertura y cuántos van revisados
+python3 scripts/feedback.py --categoria <slug>   # qué dejaron los inspectores
+python3 scripts/generar_reporte.py --entrada hallazgos.json --auto --slot 1
+python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos 21
 ```
 
-## Ciclo de categorías
+## Calendario
 
-El orden es fijo y está definido en `scripts/rotacion.py`. Son 10 categorías, así
-que el ciclo completo se cubre en dos semanas hábiles:
+Dos categorías por día hábil, en bloques independientes. Es un calendario fijo,
+no una rotación: si una corrida falla, el mismo día de la semana siguiente vuelve
+a tocar esa categoría.
 
-1. Guantes quirúrgicos de látex
-2. Guantes de examen médico
-3. Preservativos masculinos (látex y sintéticos)
-4. Preservativos femeninos
-5. Agujas hipodérmicas
-6. Jeringas hipodérmicas
-7. Jeringas con agujas hipodérmicas
-8. Desfibriladores externos automáticos (DEA)
-9. Autotest VIH
-10. Kits VIH uso profesional
+| Día | Bloque 1 | Bloque 2 |
+|---|---|---|
+| Lunes | Agujas hipodérmicas | Autotest VIH |
+| Martes | Desfibriladores (DEA) | Guantes de examinación |
+| Miércoles | Guantes quirúrgicos | Jeringas con agujas |
+| Jueves | Jeringas hipodérmicas | Kits VIH uso profesional |
+| Viernes | Preservativos masculinos | Preservativos femeninos |
 
-El estado se guarda con un **slug estable** (`kits-vih-profesional`), no con el
-nombre del archivo: los Excel del ISP llevan la fecha embebida y cambian de
-nombre en cada actualización.
+Horario: **lunes a viernes 07:30 hora de Chile**, desde el 24-08-2026.
+
+## Inspectores
+
+La revisión es semanal y rota cada tres semanas, indefinidamente, desde el lunes
+24-08-2026:
+
+| Semana | Inspector | Correo |
+|---|---|---|
+| 1 | Emilio Millán | emillan@ispch.cl |
+| 2 | Lukas Gallegos | lgallegos@ispch.cl |
+| 3 | María Inés Medina | mmedina@ispch.cl |
+
+Cada Excel se envía por Gmail al inspector de turno apenas termina la búsqueda.
+El inspector completa **"Decisión final"** y **"Observaciones del inspector"** y
+sube el archivo a `revision/`. Ver `revision/README.md`.
+
+## Objetivo de volumen
+
+Cada corrida apunta a **20 hallazgos**, con una mezcla esperada de 60% no
+registrado y 40% registrado. Es un objetivo de **esfuerzo de búsqueda**, no una
+cuota: si al agotar la búsqueda hay menos, se reporta el número real. La
+clasificación sale del cruce con el listado ISP y nunca se fuerza para calzar la
+proporción.
 
 ## Actualizar los listados ISP
 
