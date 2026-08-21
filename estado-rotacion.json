@@ -1,5 +1,13 @@
 {
-  "ultima_categoria": "",
-  "ultima_fecha": "",
-  "historial": []
+  "ultima_categoria": "guantes-quirurgicos",
+  "ultima_fecha": "2026-08-21",
+  "historial": [
+    {
+      "categoria": "guantes-quirurgicos",
+      "nombre": "Guantes quirúrgicos de látex",
+      "fecha": "2026-08-21",
+      "archivo": "Fiscalizacion_Web_DM_guantes-quirurgicos_21-08-2026.xlsx",
+      "hallazgos": 15
+    }
+  ]
 }
