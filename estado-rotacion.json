@@ -5,6 +5,13 @@
     {
       "categoria": "guantes-quirurgicos",
       "nombre": "Guantes quirúrgicos de látex",
+      "fecha": "2026-08-19",
+      "archivo": "Fiscalizacion_Web_DM_guantes-quirurgicos_19-08-2026.xlsx",
+      "hallazgos": 5
+    },
+    {
+      "categoria": "guantes-quirurgicos",
+      "nombre": "Guantes quirúrgicos de látex",
       "fecha": "2026-08-21",
       "archivo": "Fiscalizacion_Web_DM_guantes-quirurgicos_21-08-2026.xlsx",
       "hallazgos": 15
