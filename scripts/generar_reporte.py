@@ -46,6 +46,9 @@ from openpyxl.utils import get_column_letter
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Objetivo de esfuerzo de búsqueda (ver SKILL.md). No es una cuota a rellenar.
+OBJETIVO = 20
+
 # Paleta institucional: azul ISP para encabezados.
 AZUL_ISP = "003366"
 FILA_ALT = "F2F6FA"
@@ -65,6 +68,7 @@ COLUMNAS = [
     ("Clasificación", 18, "clasificacion"),
     ("Observaciones", 60, "observaciones"),
     ("Decisión final", 22, "decision_final"),
+    ("Observaciones del inspector", 60, "obs_inspector"),
 ]
 
 COLUMNAS_MKT = [
@@ -74,6 +78,7 @@ COLUMNAS_MKT = [
     ("Marcas detectadas en filtros", 40, "marcas_detectadas"),
     ("Cantidad aprox. de publicaciones", 18, "cantidad_aprox"),
     ("Observaciones para el fiscalizador", 70, "observaciones"),
+    ("Observaciones del inspector", 60, "obs_inspector"),
 ]
 
 BORDE = Border(*[Side(style="thin", color="C8CDD4")] * 4)
@@ -117,9 +122,11 @@ def _escribir_filas(ws, columnas, filas, colorear_clasificacion=True):
             else:
                 celda.fill = PatternFill("solid", fgColor=GRIS)
 
-            # "Decisión final" siempre en amarillo: es el campo que llena el fiscalizador.
-            col_dec = next(i for i, c in enumerate(columnas, 1) if c[2] == "decision_final")
-            ws.cell(row=n, column=col_dec).fill = PatternFill("solid", fgColor=AMARILLO)
+        # Las columnas que llena el inspector van en amarillo, en ambas hojas.
+        for clave in ("decision_final", "obs_inspector"):
+            col = next((i for i, c in enumerate(columnas, 1) if c[2] == clave), None)
+            if col is not None:
+                ws.cell(row=n, column=col).fill = PatternFill("solid", fgColor=AMARILLO)
 
 
 def _fila_sin_hallazgos(fecha, categoria):
@@ -140,6 +147,7 @@ def _fila_sin_hallazgos(fecha, categoria):
             "alojadas en sitios con acceso restringido."
         ),
         "decision_final": "",
+        "obs_inspector": "",
     }
 
 
@@ -191,6 +199,9 @@ def main():
         action="store_true",
         help="deducir la ruta de salida desde scripts/rotacion.py",
     )
+    ap.add_argument("--slot", type=int, choices=(1, 2), default=1,
+                    help="bloque del día, usado junto con --auto")
+    ap.add_argument("--fecha", help="fecha YYYY-MM-DD, usada junto con --auto")
     args = ap.parse_args()
 
     with open(args.entrada, encoding="utf-8") as fh:
@@ -203,12 +214,33 @@ def main():
             return 1
         sys.path.insert(0, os.path.join(RAIZ, "scripts"))
         import rotacion
-        plan = rotacion.construir_plan()
+        from datetime import date as _date
+        fecha = _date.fromisoformat(args.fecha) if args.fecha else None
+        plan = rotacion.construir_plan(fecha, args.slot)
+        if not plan.get("habil"):
+            print(f"{plan['dia']} {plan['fecha']}: {plan['motivo']}", file=sys.stderr)
+            return 3
         salida = plan["archivo_salida"]
         datos.setdefault("categoria", plan["categoria"])
         datos.setdefault("fecha", plan["fecha"])
 
     resumen = generar(datos, salida)
+
+    # Contraste contra el objetivo de esfuerzo. Es informativo: si la realidad no
+    # alcanza la meta se reporta el número real, nunca se rellena ni se reclasifica.
+    total = resumen["total"]
+    resumen["objetivo_hallazgos"] = OBJETIVO
+    resumen["alcanza_objetivo"] = total >= OBJETIVO
+    if total:
+        resumen["pct_no_registrado"] = round(100 * resumen["no_registrado"] / total, 1)
+        resumen["pct_registrado"] = round(100 * resumen["registrado"] / total, 1)
+    if total < OBJETIVO:
+        resumen["aviso"] = (
+            f"Se encontraron {total} hallazgos, bajo el objetivo de {OBJETIVO}. "
+            "Informar el número real en la notificación; no completar con casos "
+            "inventados ni con páginas de búsqueda."
+        )
+
     print(json.dumps(resumen, ensure_ascii=False, indent=2))
     return 0
 

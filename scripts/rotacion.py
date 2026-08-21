@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 """
-Motor de rotación de categorías para la fiscalización web de DM (ISP/ANDIM).
+Planificador de la fiscalización web de DM (ISP/ANDIM).
 
-Resuelve de forma determinista qué categoría toca fiscalizar hoy, sin depender
-del orden que devuelva `ls` (que varía según la collation del sistema) ni del
-nombre exacto del archivo Excel (que cambia cada vez que el ISP publica una
-actualización, porque lleva la fecha embebida).
+La asignación es por **calendario fijo**: cada día hábil se fiscalizan dos
+categorías, en dos bloques independientes. No es una rotación secuencial, así
+que una corrida que falle no descoloca al resto de la semana: el lunes siguiente
+vuelve a tocar lo mismo que este lunes.
+
+    Lunes      1) Agujas hipodérmicas          2) Autotest VIH
+    Martes     1) Desfibriladores (DEA)        2) Guantes de examinación
+    Miércoles  1) Guantes quirúrgicos          2) Jeringas con agujas
+    Jueves     1) Jeringas hipodérmicas        2) Kits VIH uso profesional
+    Viernes    1) Preservativos masculinos     2) Preservativos femeninos
+
+El inspector que revisa la semana rota cada 3 semanas desde el 24-08-2026.
 
 Uso:
-    python3 scripts/rotacion.py            # muestra la categoría que toca hoy
-    python3 scripts/rotacion.py --json     # idem, salida JSON para parsear
-    python3 scripts/rotacion.py --avanzar  # registra la categoría como procesada
-    python3 scripts/rotacion.py --estado   # muestra cobertura del ciclo actual
+    python3 scripts/rotacion.py --slot 1              # bloque 1 de hoy
+    python3 scripts/rotacion.py --slot 2 --json       # bloque 2, salida JSON
+    python3 scripts/rotacion.py --semana              # plan de la semana
+    python3 scripts/rotacion.py --estado              # cobertura histórica
+    python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos 21
+    python3 scripts/rotacion.py --slot 1 --fecha 2026-08-24   # simular un día
 """
 
 import argparse
@@ -20,11 +30,12 @@ import json
 import os
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timedelta
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR_ISP = os.path.join(RAIZ, "registros-isp")
 DIR_RESULTADOS = os.path.join(RAIZ, "resultados")
+DIR_REVISION = os.path.join(RAIZ, "revision")
 ARCHIVO_ESTADO = os.path.join(RAIZ, "estado-rotacion.json")
 
 # Orden canónico del ciclo de fiscalización. El `slug` es la clave estable que
@@ -104,6 +115,64 @@ CATEGORIAS = [
 ]
 
 POR_SLUG = {c["slug"]: c for c in CATEGORIAS}
+
+# Calendario fijo: día de la semana (0=lunes) -> [bloque 1, bloque 2].
+# Las 10 categorías quedan cubiertas de lunes a viernes, dos por día.
+CALENDARIO = {
+    0: ["agujas-hipodermicas", "autotest-vih"],
+    1: ["desfibriladores-dea", "guantes-examinacion"],
+    2: ["guantes-quirurgicos", "jeringas-con-agujas"],
+    3: ["jeringas-hipodermicas", "kits-vih-profesional"],
+    4: ["preservativos-masculinos", "preservativos-femeninos"],
+}
+
+DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+
+# Inspector que revisa los hallazgos de la semana. Rota cada 3 semanas y se
+# repite indefinidamente a partir del lunes de inicio.
+INICIO_CICLO = date(2026, 8, 24)
+INSPECTORES = [
+    {"nombre": "Emilio Millán", "email": "emillan@ispch.cl"},
+    {"nombre": "Lukas Gallegos", "email": "lgallegos@ispch.cl"},
+    {"nombre": "María Inés Medina", "email": "mmedina@ispch.cl"},
+]
+
+# Objetivo de esfuerzo de búsqueda, no una cuota a rellenar. Ver SKILL.md:
+# si la realidad no da para tanto, se informa el número real; nunca se inventan
+# hallazgos ni se reclasifica para calzar la proporción.
+OBJETIVO_HALLAZGOS = 20
+OBJETIVO_NO_REGISTRADO = 0.60
+OBJETIVO_REGISTRADO = 0.40
+
+
+def lunes_de(fecha):
+    return fecha - timedelta(days=fecha.weekday())
+
+
+def inspector_de(fecha):
+    """Inspector a cargo de la semana que contiene `fecha`."""
+    semanas = (lunes_de(fecha) - INICIO_CICLO).days // 7
+    insp = dict(INSPECTORES[semanas % len(INSPECTORES)])
+    insp["semana_ciclo"] = (semanas % len(INSPECTORES)) + 1
+    insp["semana_absoluta"] = semanas + 1
+    insp["lunes_semana"] = lunes_de(fecha).isoformat()
+    return insp
+
+
+def categorias_del_dia(fecha):
+    """Las dos categorías que tocan ese día, o [] si es fin de semana."""
+    return [POR_SLUG[s] for s in CALENDARIO.get(fecha.weekday(), [])]
+
+
+def categoria_de(fecha, slot):
+    """Categoría del bloque `slot` (1 o 2) para esa fecha."""
+    delDia = categorias_del_dia(fecha)
+    if not delDia:
+        return None
+    if slot not in (1, 2):
+        raise ValueError("slot debe ser 1 o 2")
+    return delDia[slot - 1]
+
 
 
 def cargar_estado():
@@ -191,79 +260,146 @@ def resolver_excel(cat):
     return max(coincidencias, key=os.path.getmtime)
 
 
-def siguiente_categoria(estado):
-    """La categoría posterior a la última procesada; reinicia el ciclo al llegar al final."""
-    ultimo = normalizar_slug(estado.get("ultima_categoria"))
-    if ultimo is None:
-        return CATEGORIAS[0]
-    idx = next(i for i, c in enumerate(CATEGORIAS) if c["slug"] == ultimo)
-    return CATEGORIAS[(idx + 1) % len(CATEGORIAS)]
+
+def reportes_previos(cat):
+    """Reportes anteriores de la categoría, los revisados primero.
+
+    `revision/` tiene prioridad: son los archivos que el inspector ya evaluó, y
+    su feedback vale más que el reporte crudo que generó la rutina.
+    """
+    patron = f"Fiscalizacion_Web_DM_{cat['slug']}_*.xlsx"
+    revisados = sorted(glob.glob(os.path.join(DIR_REVISION, patron)), key=os.path.getmtime, reverse=True)
+    crudos = sorted(glob.glob(os.path.join(DIR_RESULTADOS, patron)), key=os.path.getmtime, reverse=True)
+    return {"revisados": revisados, "crudos": crudos}
 
 
 def reporte_previo(cat):
-    """Último Excel de resultados de esta categoría, para el ciclo de retroalimentación."""
-    patron = os.path.join(DIR_RESULTADOS, f"Fiscalizacion_Web_DM_{cat['slug']}_*.xlsx")
-    previos = glob.glob(patron)
-    if not previos:
-        return None
-    return max(previos, key=os.path.getmtime)
+    """El reporte más reciente de la categoría, priorizando los ya revisados."""
+    p = reportes_previos(cat)
+    if p["revisados"]:
+        return p["revisados"][0]
+    return p["crudos"][0] if p["crudos"] else None
 
 
-def construir_plan():
-    estado = cargar_estado()
-    cat = siguiente_categoria(estado)
+def construir_plan(fecha=None, slot=1):
+    """Plan de trabajo para un bloque de un día concreto."""
+    fecha = fecha or date.today()
+    cat = categoria_de(fecha, slot)
+
+    if cat is None:
+        return {
+            "habil": False,
+            "dia": DIAS[fecha.weekday()],
+            "fecha": fecha.strftime("%d-%m-%Y"),
+            "fecha_iso": fecha.isoformat(),
+            "slot": slot,
+            "motivo": "fin de semana: no hay fiscalización programada",
+        }
+
     excel = resolver_excel(cat)
-    hoy = date.today()
+    previos = reportes_previos(cat)
     return {
+        "habil": True,
+        "dia": DIAS[fecha.weekday()],
+        "slot": slot,
         "slug": cat["slug"],
         "categoria": cat["nombre"],
         "excel_isp": excel,
         "excel_encontrado": excel is not None,
         "hoja": cat["hoja"],
         "in_vitro": cat["in_vitro"],
-        "fecha": hoy.strftime("%d-%m-%Y"),
-        "fecha_iso": hoy.isoformat(),
+        "fecha": fecha.strftime("%d-%m-%Y"),
+        "fecha_iso": fecha.isoformat(),
         "archivo_salida": os.path.join(
             DIR_RESULTADOS,
-            f"Fiscalizacion_Web_DM_{cat['slug']}_{hoy.strftime('%d-%m-%Y')}.xlsx",
+            f"Fiscalizacion_Web_DM_{cat['slug']}_{fecha.strftime('%d-%m-%Y')}.xlsx",
         ),
+        "otra_categoria_del_dia": [
+            c["nombre"] for c in categorias_del_dia(fecha) if c["slug"] != cat["slug"]
+        ],
         "reporte_previo": reporte_previo(cat),
-        "ultima_categoria_previa": estado.get("ultima_categoria", ""),
-        "ultima_fecha_previa": estado.get("ultima_fecha", ""),
+        "reportes_revisados": previos["revisados"],
+        "reportes_crudos": previos["crudos"],
+        "inspector": inspector_de(fecha),
+        "objetivo_hallazgos": OBJETIVO_HALLAZGOS,
+        "objetivo_no_registrado": OBJETIVO_NO_REGISTRADO,
+        "objetivo_registrado": OBJETIVO_REGISTRADO,
     }
 
 
-def avanzar(hallazgos=None, notas=""):
+def plan_semana(fecha=None):
+    """Las 10 asignaciones de la semana que contiene `fecha`."""
+    fecha = fecha or date.today()
+    lunes = lunes_de(fecha)
+    filas = []
+    for i in range(5):
+        d = lunes + timedelta(days=i)
+        for slot in (1, 2):
+            cat = categoria_de(d, slot)
+            filas.append(
+                {
+                    "fecha": d.isoformat(),
+                    "dia": DIAS[d.weekday()],
+                    "slot": slot,
+                    "slug": cat["slug"],
+                    "categoria": cat["nombre"],
+                }
+            )
+    return {"lunes": lunes.isoformat(), "inspector": inspector_de(fecha), "bloques": filas}
+
+
+def avanzar(fecha=None, slot=1, hallazgos=None, notas=""):
+    """Registra el bloque como procesado. Llamar SOLO tras un push exitoso."""
     estado = cargar_estado()
-    plan = construir_plan()
+    plan = construir_plan(fecha, slot)
+    if not plan["habil"]:
+        return plan
+
     estado["ultima_categoria"] = plan["slug"]
     estado["ultima_fecha"] = plan["fecha_iso"]
     entrada = {
         "categoria": plan["slug"],
         "nombre": plan["categoria"],
         "fecha": plan["fecha_iso"],
+        "dia": plan["dia"],
+        "slot": slot,
         "archivo": os.path.basename(plan["archivo_salida"]),
+        "inspector": plan["inspector"]["email"],
     }
     if hallazgos is not None:
         entrada["hallazgos"] = hallazgos
     if notas:
         entrada["notas"] = notas
+
+    # Idempotencia: reejecutar el mismo bloque el mismo día no duplica el registro.
+    estado["historial"] = [
+        h for h in estado["historial"]
+        if not (h.get("fecha") == entrada["fecha"] and h.get("slot") == slot)
+    ]
     estado["historial"].append(entrada)
     guardar_estado(estado)
     return plan
 
 
 def cobertura():
-    """Qué categorías ya se cubrieron y cuáles faltan, mirando ./resultados/."""
+    """Qué categorías tienen reporte y cuáles fueron revisadas por un inspector."""
     filas = []
     for cat in CATEGORIAS:
-        previo = reporte_previo(cat)
+        previos = reportes_previos(cat)
+        dia = next(
+            (f"{DIAS[d]} b{s}" for d, pair in CALENDARIO.items()
+             for s, slug in enumerate(pair, 1) if slug == cat["slug"]),
+            "-",
+        )
         filas.append(
             {
                 "slug": cat["slug"],
                 "nombre": cat["nombre"],
+                "programada": dia,
                 "excel_isp": os.path.basename(resolver_excel(cat) or "") or "FALTA",
-                "ultimo_reporte": os.path.basename(previo) if previo else "nunca",
+                "reportes": len(previos["crudos"]),
+                "revisados": len(previos["revisados"]),
+                "ultimo": os.path.basename(reporte_previo(cat) or "") or "nunca",
             }
         )
     return filas
@@ -271,12 +407,28 @@ def cobertura():
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--slot", type=int, choices=(1, 2), default=1, help="bloque del día")
+    ap.add_argument("--fecha", help="fecha YYYY-MM-DD (por defecto hoy)")
     ap.add_argument("--json", action="store_true", help="salida JSON")
-    ap.add_argument("--avanzar", action="store_true", help="registrar como procesada")
-    ap.add_argument("--estado", action="store_true", help="mostrar cobertura del ciclo")
-    ap.add_argument("--hallazgos", type=int, default=None, help="n.º de hallazgos a registrar")
+    ap.add_argument("--avanzar", action="store_true", help="registrar como procesado")
+    ap.add_argument("--semana", action="store_true", help="plan de la semana")
+    ap.add_argument("--estado", action="store_true", help="cobertura histórica")
+    ap.add_argument("--hallazgos", type=int, default=None, help="n.º de hallazgos")
     ap.add_argument("--notas", default="", help="nota libre para el historial")
     args = ap.parse_args()
+
+    fecha = date.fromisoformat(args.fecha) if args.fecha else date.today()
+
+    if args.semana:
+        sem = plan_semana(fecha)
+        if args.json:
+            print(json.dumps(sem, ensure_ascii=False, indent=2))
+        else:
+            insp = sem["inspector"]
+            print(f"Semana del {sem['lunes']}  ·  revisa: {insp['nombre']} <{insp['email']}>")
+            for b in sem["bloques"]:
+                print(f"  {b['dia']:<10} bloque {b['slot']}  {b['categoria']}")
+        return 0
 
     if args.estado:
         filas = cobertura()
@@ -284,28 +436,38 @@ def main():
             print(json.dumps(filas, ensure_ascii=False, indent=2))
         else:
             for f in filas:
-                print(f"{f['slug']:<26} ISP: {f['excel_isp']:<62} último reporte: {f['ultimo_reporte']}")
+                print(
+                    f"{f['slug']:<26} {f['programada']:<14} "
+                    f"reportes:{f['reportes']:<3} revisados:{f['revisados']:<3} último: {f['ultimo']}"
+                )
         return 0
 
-    plan = avanzar(args.hallazgos, args.notas) if args.avanzar else construir_plan()
+    plan = avanzar(fecha, args.slot, args.hallazgos, args.notas) if args.avanzar else construir_plan(fecha, args.slot)
 
     if args.json:
         print(json.dumps(plan, ensure_ascii=False, indent=2))
-        return 0
+        return 0 if plan.get("habil") else 3
 
+    if not plan["habil"]:
+        print(f"{plan['dia'].capitalize()} {plan['fecha']}: {plan['motivo']}")
+        return 3
+
+    insp = plan["inspector"]
+    print(f"Día            : {plan['dia']} {plan['fecha']}  ·  bloque {plan['slot']}")
     print(f"Categoría      : {plan['categoria']}  ({plan['slug']})")
-    print(f"Fecha          : {plan['fecha']}")
     print(f"Excel ISP      : {plan['excel_isp'] or '*** NO ENCONTRADO ***'}")
     print(f"Hoja           : {plan['hoja'] or '(primera hoja)'}")
-    print(f"Reporte previo : {plan['reporte_previo'] or '(ninguno)'}")
+    print(f"Objetivo       : {plan['objetivo_hallazgos']} hallazgos "
+          f"({plan['objetivo_no_registrado']:.0%} no registrado / {plan['objetivo_registrado']:.0%} registrado)")
+    print(f"Revisados      : {len(plan['reportes_revisados'])} en revision/  ·  "
+          f"{len(plan['reportes_crudos'])} en resultados/")
+    print(f"Reporte previo : {os.path.basename(plan['reporte_previo']) if plan['reporte_previo'] else '(ninguno)'}")
+    print(f"Inspector      : {insp['nombre']} <{insp['email']}>  (semana {insp['semana_ciclo']}/3)")
     print(f"Salida         : {plan['archivo_salida']}")
     if args.avanzar:
         print("\nEstado actualizado en estado-rotacion.json")
     if not plan["excel_encontrado"]:
-        print(
-            f"\nADVERTENCIA: no hay Excel ISP que haga match con {POR_SLUG[plan['slug']]['patron']}",
-            file=sys.stderr,
-        )
+        print(f"\nADVERTENCIA: falta el Excel ISP ({POR_SLUG[plan['slug']]['patron']})", file=sys.stderr)
         return 2
     return 0
 
