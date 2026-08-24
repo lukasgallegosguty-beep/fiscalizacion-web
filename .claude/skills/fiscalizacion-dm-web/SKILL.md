@@ -412,6 +412,51 @@ Cuando el cruce textual del Nivel 1 no produce coincidencia, realizar un segundo
 
 Este doble checkeo es importante porque muchas publicaciones usan nombres genéricos o comerciales que no coinciden con la marca registrada, pero las imágenes del producto sí muestran la marca real del fabricante en el empaque.
 
+#### La marca coincidente NO basta: el registro debe cubrir ESE producto
+
+Encontrar la marca en el listado ISP es el primer paso, no la conclusión. Cada
+registro sanitario ampara **presentaciones concretas**: calibres, medidas y tipo
+de producto. Un producto de marca registrada cuya presentación no está en el
+registro **no está amparado por él**.
+
+Antes de marcar REGISTRADO, verificar que la presentación ofertada aparezca entre
+las que declara el registro. La columna de marca comercial del Excel ISP las
+lista después del nombre de marca.
+
+**Caso real (24-08-2026).** Se clasificó como REGISTRADO una «Aguja Pentapoint
+32G x 4mm BD Ultra-Fine» citando el registro `DM/10AG/0219/09`. Ese registro
+ampara calibres 18G a 27G en longitudes de pulgada, y el listado completo de
+agujas hipodérmicas no contiene ningún 32G ni ninguna medida en milímetros. La
+coincidencia fue solo por la marca «Becton Dickinson». En términos regulatorios
+eso es dar por autorizado un producto que no lo está.
+
+Si la marca coincide pero la presentación no está amparada, **no es REGISTRADO**:
+anotarlo en Observaciones indicando qué calibres sí cubre el registro citado y
+cuál es el ofertado, para que el fiscalizador lo resuelva.
+
+#### Mantenerse dentro de la categoría fiscalizada
+
+Cada listado ISP cubre una familia de producto concreta. Productos parecidos pero
+de otra familia tienen su propio marco regulatorio y no se cruzan contra este
+listado.
+
+En agujas, el listado cubre **agujas hipodérmicas** de 16G a 30G en longitudes de
+pulgada. Quedan fuera:
+
+- **Agujas para lapicera de insulina** (32G x 4mm, 32G x 6mm, 31G x 5mm y
+  similares, en milímetros).
+- **Agujas de mesoterapia** (32G x 4/6mm), aunque se publiquen como
+  «hipodérmicas».
+
+Si la búsqueda arrastra productos de otra familia, no clasificarlos contra este
+listado. Registrarlos aparte en Observaciones como fuera de categoría, o dejarlos
+fuera del reporte. El 24-08-2026, seis de diecisiete hallazgos eran agujas de
+lapicera y mesoterapia mezcladas con las hipodérmicas.
+
+Ante la duda de si un producto pertenece a la categoría, mirar los calibres y
+unidades que usa el listado ISP: si el producto está fuera de ese rango o usa
+otra unidad de medida, casi siempre es de otra familia.
+
 #### Clasificación
 
 Solo dos categorías:
@@ -428,7 +473,7 @@ Crea un archivo `.xlsx` con las siguientes columnas exactas, en este orden:
 
 | # | Columna | Descripción |
 |---|---|---|
-| 1 | Nombre de DM ofertado | Nombre del dispositivo médico tal como aparece en la oferta |
+| 1 | Nombre de DM ofertado | Nombre del producto **tal como aparece publicado**, con marca y presentación. **Nunca el nombre de la categoría.** Si todas las filas dicen «Autotest VIH», el inspector no puede distinguir un producto de otro y el reporte no sirve. Ocurrió el 24-08-2026: las 9 filas decían lo mismo. |
 | 2 | URL | Link directo a la publicación individual del producto (nunca a páginas de búsqueda) |
 | 3 | Título de la publicación | Título completo de la publicación/oferta |
 | 4 | Oferente | Nombre del vendedor, tienda o sitio web (si está disponible) |
@@ -472,7 +517,12 @@ python3 scripts/generar_reporte.py --entrada hallazgos.json --auto --slot 1
 ```
 
 `--auto --slot N` deduce la categoría, la fecha y la ruta de salida desde
-`scripts/rotacion.py`. Si no hay hallazgos, basta con `"hallazgos": []`: el script
+`scripts/rotacion.py`.
+
+El script imprime un campo `avisos_calidad` cuando detecta problemas: filas que
+usan el nombre de la categoría en vez del producto, REGISTRADO sin número de
+registro, URLs repetidas o páginas de búsqueda. **Corregir el JSON y regenerar
+antes de enviar**: son errores que el inspector no puede resolver por su cuenta. Si no hay hallazgos, basta con `"hallazgos": []`: el script
 emite igualmente el archivo con la fila "Sin hallazgos" y la fecha de revisión,
 que es lo que deja constancia de que la categoría sí se revisó ese día.
 

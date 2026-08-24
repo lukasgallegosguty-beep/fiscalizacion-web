@@ -93,10 +93,23 @@ Si al terminar TODOS los hallazgos salieron REGISTRADO, no cierres: es señal de
 que la búsqueda se quedó en las tiendas grandes y formales, que son las que sí
 cumplen. Haz otra ronda buscando publicaciones sin marca en el título, tiendas
 pequeñas, marketplaces y venta al público general de productos de uso profesional.
+DOS REGLAS DE CRUCE QUE FALLARON EL 24-08:
+  - Que la marca esté en el listado NO basta para marcar REGISTRADO. El registro
+    ampara calibres y medidas concretos: verifica que la presentación ofertada
+    esté entre las que declara ese registro. Se clasificó una aguja 32G x 4mm
+    como registrada citando un registro que solo cubre 18G a 27G en pulgadas.
+  - No arrastres productos de otra familia. El listado de agujas hipodérmicas no
+    cubre agujas de lapicera de insulina ni de mesoterapia (32G x 4mm, 32G x 6mm
+    y similares en milímetros), aunque se publiquen como "hipodérmicas".
 
 PASO 4 — REPORTE
 Arma el JSON de hallazgos y genera el Excel:
   python3 scripts/generar_reporte.py --entrada <hallazgos.json> --auto --slot 1
+En "Nombre de DM ofertado" va el nombre del producto TAL COMO APARECE PUBLICADO,
+con marca y presentación. NUNCA el nombre de la categoría: si todas las filas
+dicen lo mismo, el inspector no puede distinguir un producto de otro.
+Si el script imprime "avisos_calidad", corrige el JSON y vuelve a generar antes
+de enviar. Son errores que el inspector no puede resolver por su cuenta.
 Deja en blanco "Decisión final" y "Observaciones del inspector": las llena el
 inspector. Si no hay hallazgos, pasa "hallazgos": [] igual.
 
