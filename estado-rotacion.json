@@ -1,5 +1,16 @@
 {
-  "ultima_categoria": "",
-  "ultima_fecha": "",
-  "historial": []
+  "ultima_categoria": "agujas-hipodermicas",
+  "ultima_fecha": "2026-08-24",
+  "historial": [
+    {
+      "categoria": "agujas-hipodermicas",
+      "nombre": "Agujas hipodérmicas",
+      "fecha": "2026-08-24",
+      "dia": "lunes",
+      "slot": 1,
+      "archivo": "Fiscalizacion_Web_DM_agujas-hipodermicas_24-08-2026.xlsx",
+      "inspector": "emillan@ispch.cl",
+      "hallazgos": 17
+    }
+  ]
 }
