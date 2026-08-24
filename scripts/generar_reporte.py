@@ -151,6 +151,65 @@ def _fila_sin_hallazgos(fecha, categoria):
     }
 
 
+def validar(datos):
+    """Controles de calidad sobre los hallazgos, antes de emitir el Excel.
+
+    Devuelve una lista de avisos. No corrige nada ni descarta filas: la decisión
+    es del fiscalizador. Solo hace visible lo que de otro modo llega al inspector
+    sin que nadie lo note.
+    """
+    avisos = []
+    hallazgos = datos.get("hallazgos") or []
+    if not hallazgos:
+        return avisos
+
+    categoria = str(datos.get("categoria", "")).strip().lower()
+    nombres = [str(h.get("nombre_dm", "")).strip() for h in hallazgos]
+
+    # La columna 1 debe llevar el nombre publicado del producto, no la categoría.
+    # Si todas las filas dicen lo mismo, el reporte no le sirve al inspector:
+    # no puede distinguir un producto de otro.
+    genericos = [n for n in nombres if n.lower() == categoria]
+    if genericos:
+        avisos.append(
+            f"{len(genericos)} de {len(nombres)} filas usan el nombre de la categoría "
+            f"(«{datos.get('categoria')}») como nombre del producto. La columna "
+            "'Nombre de DM ofertado' debe llevar el nombre tal como aparece publicado."
+        )
+    elif len(set(n.lower() for n in nombres if n)) == 1 and len(nombres) > 1:
+        avisos.append(
+            f"Las {len(nombres)} filas repiten el mismo nombre de producto "
+            f"(«{nombres[0]}»). Debe ir el nombre publicado de cada oferta."
+        )
+
+    # Un REGISTRADO sin número de registro no es verificable por el inspector.
+    sin_reg = [
+        h.get("nombre_dm") for h in hallazgos
+        if str(h.get("clasificacion", "")).strip().upper() == "REGISTRADO"
+        and not str(h.get("registro_isp", "")).strip()
+    ]
+    if sin_reg:
+        avisos.append(
+            f"{len(sin_reg)} hallazgo(s) marcados REGISTRADO sin N° de registro sanitario. "
+            "Sin ese dato la clasificación no es verificable."
+        )
+
+    urls = [str(h.get("url", "")).strip() for h in hallazgos if h.get("url")]
+    rep = {u for u in urls if urls.count(u) > 1}
+    if rep:
+        avisos.append(f"{len(rep)} URL(s) repetidas en el reporte: {', '.join(list(rep)[:3])}")
+
+    marcadores = ("listado.", "/search", "?q=", "/buscar", "/s?", "google.com/search")
+    busq = [u for u in urls if any(m in u.lower() for m in marcadores)]
+    if busq:
+        avisos.append(
+            f"{len(busq)} URL(s) parecen páginas de búsqueda, no publicaciones "
+            f"individuales: {busq[0]}"
+        )
+
+    return avisos
+
+
 def generar(datos, salida):
     categoria = datos.get("categoria", "(sin categoría)")
     fecha = datos.get("fecha") or date.today().strftime("%d-%m-%Y")
@@ -224,7 +283,10 @@ def main():
         datos.setdefault("categoria", plan["categoria"])
         datos.setdefault("fecha", plan["fecha"])
 
+    avisos = validar(datos)
     resumen = generar(datos, salida)
+    if avisos:
+        resumen["avisos_calidad"] = avisos
 
     # Contraste contra el objetivo de esfuerzo. Es informativo: si la realidad no
     # alcanza la meta se reporta el número real, nunca se rellena ni se reclasifica.
