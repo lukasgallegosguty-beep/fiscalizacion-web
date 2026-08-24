@@ -135,10 +135,17 @@ una nota de qué se buscó y hasta dónde se llegó. Un número real bajo es un 
 útil para el inspector; uno inflado le hace abrir un sumario contra un oferente
 que no corresponde.
 
-La proporción 60/40 sirve además como señal de calidad: si todo sale NO
-REGISTRADO, lo más probable es que el cruce esté fallando —revisar antes de
-reportar—, y si todo sale REGISTRADO, la búsqueda se quedó en las tiendas
-grandes y formales.
+La proporción 60/40 sirve además como señal de calidad, y hay que **actuar sobre
+ella antes de reportar, no solo anotarla**:
+
+- **Todo NO REGISTRADO** → lo más probable es que el cruce esté fallando. Revisar
+  el emparejamiento de marcas antes de emitir el reporte.
+- **Todo REGISTRADO** → la búsqueda se quedó en las tiendas grandes y formales,
+  que son justamente las que sí cumplen. Es un falso "todo en orden". Antes de
+  cerrar, hacer al menos otra ronda buscando: publicaciones sin marca declarada
+  en el título, tiendas pequeñas y no especializadas, marketplaces, y
+  vendedores que oferten al público general un producto de uso profesional.
+  Ocurrió con Autotest VIH el 24-08-2026: 9 hallazgos, los 9 registrados.
 
 ### Paso 5-bis — Persistir en Git (OBLIGATORIO)
 
@@ -148,7 +155,14 @@ Al terminar, en este orden:
 python3 scripts/rotacion.py --slot <N> --avanzar --hallazgos <M>   # actualiza el estado
 git add resultados/ estado-rotacion.json
 git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
-git push -u origin <rama>   # la rutina la fija en su prompt
+
+# Los dos bloques del día corren casi a la misma hora y empujan a la misma rama,
+# así que el push puede ser rechazado por no ser fast-forward. Reintegrar y
+# reintentar en vez de darlo por perdido:
+for intento in 1 2 3; do
+  git push origin main && break
+  git pull --rebase origin main || break
+done
 ```
 
 **Verificar que el push terminó bien** (`git status` debe quedar sin commits
@@ -161,24 +175,42 @@ exista el reporte, y la rotación se la salta en el ciclo siguiente.
 
 ### Paso 5-ter — Enviar el reporte al inspector de la semana
 
-Después de que el push haya quedado confirmado, enviar el `.xlsx` por Gmail al
-inspector que devuelve `scripts/rotacion.py` en el campo `inspector`. Rota cada
-tres semanas; no fijarlo a mano.
+Después de que el push haya quedado confirmado, avisar por Gmail al inspector que
+devuelve `scripts/rotacion.py` en el campo `inspector`. Rota cada tres semanas;
+no fijarlo a mano.
+
+**El Excel va como ENLACE, nunca como adjunto.** Adjuntar el archivo obliga a
+transcribir su contenido binario en base64 dentro de la llamada a la herramienta,
+y una sola diferencia de carácter en esos miles de caracteres deja el archivo
+irrecuperable. Ya ocurrió: los dos reportes del 24-08-2026 llegaron corruptos por
+esta vía, con el original intacto en el repositorio. No es un riesgo teórico ni
+depende de cuánto cuidado se ponga: el formato no tolera el error.
+
+El enlace de descarga directa se arma con la ruta del archivo ya empujado:
+
+```
+https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<nombre-del-archivo>.xlsx
+```
+
+El repositorio es público, así que el inspector no necesita cuenta de GitHub ni
+permisos: el enlace descarga el archivo directamente.
 
 - **Asunto**: `Fiscalización web DM — <Categoría> — <DD-MM-YYYY>`
-- **Cuerpo**: categoría y fecha, total de hallazgos con el desglose por
-  clasificación, si se alcanzó el objetivo de 20 (y si no, por qué), los 3 casos
-  más relevantes, los descartados por jurisdicción y los marketplaces que
-  bloquearon el acceso. Cerrar recordando que las columnas "Decisión final" y
-  "Observaciones del inspector" se completan y el archivo se sube a `revision/`.
-- **Adjunto**: el `.xlsx` generado.
+- **Cuerpo**: el enlace de descarga en un lugar visible; categoría y fecha; total
+  de hallazgos con el desglose por clasificación; si se alcanzó el objetivo de 20
+  y si no, por qué; los 3 casos más relevantes; los descartados por jurisdicción;
+  y los marketplaces que bloquearon el acceso. Cerrar recordando que las columnas
+  "Decisión final" y "Observaciones del inspector" se completan y el archivo se
+  sube a `revision/`.
 
-Enviar **un correo por bloque**, no uno diario con los dos: cada Excel viaja con
-su propio contexto.
+Enviar **un correo por bloque**, no uno diario con los dos.
 
-Si el envío falla, decirlo en la notificación con el error. No es motivo para
-deshacer el commit: el reporte ya está en el repositorio y el inspector puede
-tomarlo de ahí.
+Si el push a `main` no llegó a completarse, el enlace a `main` no va a existir.
+En ese caso, enlazar la rama donde sí quedó el archivo, reemplazando `main` por
+el nombre de esa rama en la URL, y decirlo en el cuerpo.
+
+Si el envío falla, informarlo en la notificación con el error. No es motivo para
+deshacer el commit: el reporte ya está en el repositorio.
 
 ### Adjuntar el reporte a la notificación
 

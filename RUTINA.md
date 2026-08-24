@@ -89,6 +89,10 @@ reclasifiques un producto para que calce la proporción. Si al agotar la búsque
 hay menos de 20, informa el número real y qué buscaste.
 Respeta las dos reglas críticas: solo publicaciones individuales de producto, y
 solo ofertas con alcance real en Chile.
+Si al terminar TODOS los hallazgos salieron REGISTRADO, no cierres: es señal de
+que la búsqueda se quedó en las tiendas grandes y formales, que son las que sí
+cumplen. Haz otra ronda buscando publicaciones sin marca en el título, tiendas
+pequeñas, marketplaces y venta al público general de productos de uso profesional.
 
 PASO 4 — REPORTE
 Arma el JSON de hallazgos y genera el Excel:
@@ -101,22 +105,39 @@ En este orden exacto:
   1. python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos <N>
   2. git add resultados/ estado-rotacion.json
   3. git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
-  4. git push -u origin main
-  5. Verifica que git status no muestre commits sin subir.
+  4. Empuja a main reintentando, porque el otro bloque del día corre casi a la
+     misma hora y puede haber empujado antes que tú:
+       for intento in 1 2 3; do
+         git push origin main && break
+         git pull --rebase origin main || break
+       done
+  5. Verifica que git status no muestre commits sin subir, y anota en qué rama
+     quedó finalmente el archivo: lo necesitas para el enlace del paso 6.
 Si el push falla, dilo en la notificación con el error textual. Nunca termines en
 silencio dando por hecho que se guardó.
 
-PASO 6 — ENVIAR AL INSPECTOR
-Con el push ya confirmado, envía por Gmail el .xlsx al inspector que devolvió el
-paso 1 (campo inspector.email). No fijes el destinatario a mano: rota cada 3
-semanas.
+PASO 6 — AVISAR AL INSPECTOR
+Con el push ya confirmado, escribe por Gmail al inspector que devolvió el paso 1
+(campo inspector.email). No fijes el destinatario a mano: rota cada 3 semanas.
+
+NO ADJUNTES EL ARCHIVO. Manda un ENLACE de descarga.
+Adjuntarlo obliga a transcribir el binario en base64 y basta un carácter distinto
+para que el Excel llegue irrecuperable. Ya pasó el 24-08-2026: los dos reportes
+llegaron corruptos y el original estaba intacto en el repositorio.
+
+El enlace se arma con la ruta del archivo que acabas de empujar:
+  https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<archivo>.xlsx
+El repositorio es público: el inspector no necesita cuenta ni permisos.
+Si el push a main no se completó y el archivo quedó en otra rama, reemplaza main
+por el nombre de esa rama en la URL y dilo en el cuerpo.
+
   Asunto: Fiscalización web DM — <Categoría> — <DD-MM-YYYY>
-  Cuerpo: categoría y fecha; total de hallazgos y desglose por clasificación; si
-    se alcanzó el objetivo de 20 y si no, por qué; los 3 casos más relevantes;
-    descartados por jurisdicción; marketplaces que bloquearon el acceso. Cierra
-    recordando que debe completar "Decisión final" y "Observaciones del
-    inspector" y subir el archivo a la carpeta revision/ del repositorio.
-  Adjunto: el .xlsx generado.
+  Cuerpo: el enlace de descarga bien visible; categoría y fecha; total de
+    hallazgos y desglose por clasificación; si se alcanzó el objetivo de 20 y si
+    no, por qué; los 3 casos más relevantes; descartados por jurisdicción;
+    marketplaces que bloquearon el acceso. Cierra recordando que debe completar
+    "Decisión final" y "Observaciones del inspector" y subir el archivo a la
+    carpeta revision/ del repositorio.
 Si el envío falla, informa el error. No deshagas el commit: el reporte ya está en
 el repositorio.
 
