@@ -1,5 +1,16 @@
 {
-  "ultima_categoria": "",
-  "ultima_fecha": "",
-  "historial": []
+  "ultima_categoria": "autotest-vih",
+  "ultima_fecha": "2026-08-24",
+  "historial": [
+    {
+      "categoria": "autotest-vih",
+      "nombre": "Autotest VIH",
+      "fecha": "2026-08-24",
+      "dia": "lunes",
+      "slot": 2,
+      "archivo": "Fiscalizacion_Web_DM_autotest-vih_24-08-2026.xlsx",
+      "inspector": "emillan@ispch.cl",
+      "hallazgos": 9
+    }
+  ]
 }
