@@ -1,6 +1,6 @@
 {
-  "ultima_categoria": "autotest-vih",
-  "ultima_fecha": "2026-08-24",
+  "ultima_categoria": "guantes-examinacion",
+  "ultima_fecha": "2026-08-25",
   "historial": [
     {
       "categoria": "agujas-hipodermicas",
@@ -23,6 +23,16 @@
       "inspector": "emillan@ispch.cl",
       "hallazgos": 13,
       "notas": "Reporte corregido: nombres reales de producto, verificación de calibre contra el registro citado y exclusión de productos fuera de categoría."
+    },
+    {
+      "categoria": "guantes-examinacion",
+      "nombre": "Guantes de examen médico",
+      "fecha": "2026-08-25",
+      "dia": "martes",
+      "slot": 2,
+      "archivo": "Fiscalizacion_Web_DM_guantes-examinacion_25-08-2026.xlsx",
+      "inspector": "emillan@ispch.cl",
+      "hallazgos": 19
     }
   ]
 }
