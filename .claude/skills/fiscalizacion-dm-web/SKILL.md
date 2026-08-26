@@ -42,199 +42,6 @@ Cuando el usuario escriba **"Activa fiscalización web"** (o variantes como "act
 
 5. **Si el usuario sube un Excel con la columna "Decisión final" completada**, analizarlo según la sección "Ciclo de retroalimentación" de esta skill.
 
-## Modo rutina automatizada (desatendida)
-
-Cuando esta skill se ejecuta desde una **rutina programada** (sin una persona
-mirando), no hay nadie a quien preguntarle nada y **el contenedor se destruye al
-terminar**: todo archivo que no quede empujado a GitHub se pierde. El orden de
-los pasos cambia respecto del modo conversacional, y ese orden es obligatorio.
-
-### Paso 0 — Preflight de persistencia (SIEMPRE PRIMERO)
-
-**Antes de gastar una sola búsqueda web**, comprobar que el resultado se va a
-poder guardar:
-
-```bash
-bash scripts/preflight.sh
-```
-
-- **Sale 0** → hay permiso de escritura. Continuar con la rutina normal.
-- **Sale 1** → no hay permiso de escritura. **Abortar la fiscalización de
-  inmediato** y notificar el problema con el diagnóstico que imprime el script.
-
-Nunca ejecutar el flujo completo cuando el preflight falla. Una jornada de
-búsqueda que no se puede persistir es trabajo destruido, y volver a intentar el
-`git push` al final no cambia el resultado: el permiso no aparece solo.
-
-### Paso 0-bis — Resolver qué toca hoy
-
-La asignación es por **calendario fijo**, dos categorías por día hábil, en dos
-bloques independientes. No la deduzcas listando el directorio:
-
-```bash
-python3 scripts/rotacion.py --slot 1 --json    # o --slot 2
-```
-
-Devuelve la categoría, el Excel ISP vigente, la hoja, la ruta de salida, el
-inspector que revisa esta semana y los reportes previos ya revisados.
-
-| Día | Bloque 1 | Bloque 2 |
-|---|---|---|
-| Lunes | Agujas hipodérmicas | Autotest VIH |
-| Martes | Desfibriladores (DEA) | Guantes de examinación |
-| Miércoles | Guantes quirúrgicos | Jeringas con agujas |
-| Jueves | Jeringas hipodérmicas | Kits VIH uso profesional |
-| Viernes | Preservativos masculinos | Preservativos femeninos |
-
-En sábado o domingo el comando devuelve `"habil": false` y sale con código 3: no
-hay fiscalización programada, hay que terminar sin generar nada.
-
-### Paso 0-ter — Leer lo que revisaron los inspectores
-
-```bash
-python3 scripts/feedback.py --categoria <slug> --json
-```
-
-Lee los Excel que los inspectores dejaron en `revision/` y devuelve cuatro cosas
-que **son de uso obligatorio** en la corrida:
-
-1. `urls_excluidas` — enlaces que un inspector ya evaluó. **No volver a
-   reportarlos**, aunque sigan activos y sigan siendo infracción. Ya están en el
-   circuito; repetirlos le hace perder tiempo al inspector.
-2. `falsos_positivos` — la rutina acusó y el inspector desmintió. El criterio de
-   cruce está **demasiado estricto**: ampliar la coincidencia flexible (variantes
-   de marca, razón social del titular, nombres comerciales alternativos).
-3. `falsos_negativos` — la rutina dio por registrado algo que sí era infracción.
-   El criterio está **demasiado laxo**: verificar vigencia del registro, no solo
-   que la marca aparezca en el listado.
-4. `instrucciones_inspector` — texto libre que escribió el inspector. Tratarlo
-   como indicación operativa: sitios que pidió mirar, marcas a vigilar, criterios
-   a afinar. Si contradice a esta skill, **manda el inspector**.
-
-### Tope de 10 hallazgos por reporte
-
-Cada reporte lleva **como máximo 10 hallazgos**. Es un límite de **carga de
-revisión para el inspector**, no un límite de esfuerzo de búsqueda. La distinción
-es la que hace que el tope funcione:
-
-- **La búsqueda sigue siendo exhaustiva.** Agotar las capas, probar sinónimos y
-  variantes en inglés, recorrer tiendas chicas y marketplaces. Detenerse al
-  encontrar 10 daría los 10 primeros, no los 10 que más importan: las tiendas
-  grandes y formales son las que mejor indexan, así que una búsqueda corta
-  devuelve sobre todo productos que sí cumplen.
-- **El recorte se hace al final**, sobre todo lo encontrado y ya clasificado.
-
-`scripts/generar_reporte.py` aplica el tope solo: ordena poniendo primero los NO
-REGISTRADO y corta en 10. Un NO REGISTRADO es un caso que hay que investigar; un
-REGISTRADO es una confirmación. Si hay que dejar algo fuera, se deja fuera la
-confirmación, nunca una posible infracción.
-
-Lo que excede el tope va a una hoja **«Anexo — sobre el tope»**, marcada como que
-no requiere revisión esa semana. Como esas ofertas no quedan registradas como
-evaluadas, `scripts/feedback.py` no las excluye y **vuelven a considerarse en la
-corrida siguiente** de la categoría. No se pierden.
-
-**En el correo y en la notificación se informa sobre el total detectado, no sobre
-los 10.** Si se revisaron 16 ofertas y se incluyen 10, hay que decirlo: el
-inspector necesita saber el tamaño real de lo encontrado para dimensionar el
-problema.
-
-La mezcla registrado / no registrado se calcula también sobre el total detectado,
-porque sigue siendo la señal de calidad de la búsqueda:
-
-- **Todo NO REGISTRADO** → probablemente el cruce esté fallando. Revisar el
-  emparejamiento de marcas antes de emitir el reporte.
-- **Todo REGISTRADO** → la búsqueda se quedó en las tiendas grandes y formales,
-  que son justamente las que sí cumplen. Es un falso «todo en orden». Antes de
-  cerrar, hacer otra ronda buscando publicaciones sin marca declarada en el
-  título, tiendas pequeñas y no especializadas, marketplaces, y venta al público
-  general de productos de uso profesional. Ocurrió con Autotest VIH el
-  24-08-2026: 9 hallazgos, los 9 registrados; una segunda ronda encontró 3 sin
-  registro.
-
-Nunca inventar hallazgos, repetir una URL para llenar el cupo, registrar páginas
-de búsqueda como si fueran publicaciones, ni reclasificar un producto para que
-calce una proporción. Si al agotar la búsqueda hay 4 hallazgos, se reportan 4.
-
-### Paso 5-bis — Persistir en Git (OBLIGATORIO)
-
-Al terminar, en este orden:
-
-```bash
-python3 scripts/rotacion.py --slot <N> --avanzar --hallazgos <M> --detectados <T>
-git add resultados/ historial/
-git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
-
-# Los dos bloques del día corren casi a la misma hora y empujan a la misma rama,
-# así que el push puede ser rechazado por no ser fast-forward. Cada corrida
-# registra su historial en un archivo propio (historial/<fecha>_slot<N>.json),
-# de modo que el rebase no encuentra archivo compartido que conflictuar.
-for intento in 1 2 3; do
-  git push origin main && break
-  git pull --rebase origin main
-done
-```
-
-**Verificar que el push terminó bien** (`git status` debe quedar sin commits
-pendientes de subir). Si falla, decirlo explícitamente en la notificación con el
-error textual — nunca terminar en silencio dando por hecho que se guardó.
-
-Registrar la categoría como procesada **solo si el push tuvo éxito**. Si se
-avanza el estado y el push falla, la categoría queda marcada como hecha sin que
-exista el reporte, y la rotación se la salta en el ciclo siguiente.
-
-**Por qué el historial va en archivos separados.** Hasta el 26-08-2026 las dos
-corridas del día editaban el mismo `estado-rotacion.json`. Como corren con dos
-minutos de diferencia y empujan a la misma rama, la segunda chocaba en ese
-archivo: el `git pull --rebase` fallaba por el conflicto, el push a `main` no
-ocurría y el reporte quedaba varado en una rama suelta que nadie miraba. Pasó dos
-días seguidos, con Desfibriladores y con Jeringas con agujas. Ahora cada corrida
-escribe `historial/<fecha>_slot<N>.json`, un archivo que ninguna otra toca.
-
-### Paso 5-ter — Enviar el reporte al inspector de la semana
-
-Después de que el push haya quedado confirmado, avisar por Gmail al inspector que
-devuelve `scripts/rotacion.py` en el campo `inspector`. Rota cada tres semanas;
-no fijarlo a mano.
-
-**El Excel va como ENLACE, nunca como adjunto.** Adjuntar el archivo obliga a
-transcribir su contenido binario en base64 dentro de la llamada a la herramienta,
-y una sola diferencia de carácter en esos miles de caracteres deja el archivo
-irrecuperable. Ya ocurrió: los dos reportes del 24-08-2026 llegaron corruptos por
-esta vía, con el original intacto en el repositorio. No es un riesgo teórico ni
-depende de cuánto cuidado se ponga: el formato no tolera el error.
-
-El enlace de descarga directa se arma con la ruta del archivo ya empujado:
-
-```
-https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<nombre-del-archivo>.xlsx
-```
-
-El repositorio es público, así que el inspector no necesita cuenta de GitHub ni
-permisos: el enlace descarga el archivo directamente.
-
-- **Asunto**: `Fiscalización web DM — <Categoría> — <DD-MM-YYYY>`
-- **Cuerpo**: el enlace de descarga en un lugar visible; categoría y fecha; total
-  de hallazgos con el desglose por clasificación; si se alcanzó el objetivo de 20
-  y si no, por qué; los 3 casos más relevantes; los descartados por jurisdicción;
-  y los marketplaces que bloquearon el acceso. Cerrar recordando que las columnas
-  "Decisión final" y "Observaciones del inspector" se completan y el archivo se
-  sube a `revision/`.
-
-Enviar **un correo por bloque**, no uno diario con los dos.
-
-Si el push a `main` no llegó a completarse, el enlace a `main` no va a existir.
-En ese caso, enlazar la rama donde sí quedó el archivo, reemplazando `main` por
-el nombre de esa rama en la URL, y decirlo en el cuerpo.
-
-Si el envío falla, informarlo en la notificación con el error. No es motivo para
-deshacer el commit: el reporte ya está en el repositorio.
-
-### Adjuntar el reporte a la notificación
-
-Aunque el push funcione, adjuntar el `.xlsx` generado en la notificación final.
-Es la única copia que sobrevive si algo falla en la persistencia.
-
 ## Contexto regulatorio
 
 En Chile, ciertos dispositivos médicos requieren registro sanitario ante el ISP para poder ser comercializados. El ISP publica listados oficiales de DM con registro vigente, organizados por categoría. Productos ofertados sin figurar en estos listados representan potenciales infracciones regulatorias.
@@ -341,29 +148,6 @@ Cada hallazgo registrado en el reporte DEBE corresponder a una **publicación in
 
 Si una página de resultados de búsqueda de un marketplace muestra marcas de interés en los filtros laterales (ej: marcas como "All Test", "Hightop" en Mercado Libre), usa esa información para hacer búsquedas más específicas que lleguen a publicaciones individuales. No incluyas la página de resultados como hallazgo en la hoja principal.
 
-#### REGLA CRÍTICA: Solo ofertas con alcance en Chile
-
-La competencia fiscalizadora de ANDIM alcanza a los productos **ofertados en
-Chile**. Una tienda extranjera que no vende ni despacha a Chile queda fuera de
-alcance, por más que su producto no figure en el listado ISP.
-
-**Antes de registrar un hallazgo, confirmar al menos uno de estos indicios:**
-- Dominio `.cl`, o sitio con versión/tienda explícita para Chile.
-- Precios en pesos chilenos (CLP, `$` con formato chileno).
-- Despacho, retiro, cobertura o direcciones declaradas en Chile.
-- Datos de la empresa en Chile (RUT, dirección, teléfono +56).
-
-**Descartar** los sitios cuya operación es de otro país (México, Venezuela,
-España, Estados Unidos, etc.) sin evidencia de venta a Chile. Estos casos **no
-se registran como hallazgo**, pero conviene dejarlos anotados en el resumen de
-texto bajo "Descartados por jurisdicción", con el motivo, para que quede trazable
-por qué no aparecen en el Excel y no se vuelvan a revisar en la corrida siguiente.
-
-Cuidado con los buscadores: una consulta en español devuelve muchísimo resultado
-de tiendas mexicanas y españolas que se parecen a lo buscado pero no venden en
-Chile. Acotar las queries con `Chile`, `site:.cl` o `precio CLP` reduce bastante
-ese ruido.
-
 #### Hallazgos en marketplaces con acceso restringido (robots.txt)
 
 Algunos marketplaces (Mercado Libre, Falabella, Ripley, entre otros) bloquean el acceso directo a publicaciones individuales mediante robots.txt. Cuando esto ocurra, la información visible en las páginas de resultados de búsqueda sigue siendo valiosa para el fiscalizador. En estos casos:
@@ -374,10 +158,6 @@ Algunos marketplaces (Mercado Libre, Falabella, Ripley, entre otros) bloquean el
    - **Palabras clave usadas**: Query de búsqueda utilizada
    - **Marcas detectadas en filtros**: Marcas que aparecen en los filtros laterales del marketplace
    - **Cantidad aprox. de publicaciones**: Número de resultados indicado por el marketplace
-   - **Observaciones del inspector**: Dejar en blanco. Texto libre que completa el
-     inspector y que se lee en la corrida siguiente. Esta hoja **no lleva columna
-     "Decisión final"**: son pistas para investigación manual, no hallazgos
-     clasificados.
    - **Observaciones para el fiscalizador**: Descripción detallada de lo observado, incluyendo:
      - Qué marcas aparecen y cuántas publicaciones tiene cada una
      - Cuáles de esas marcas NO figuran en el listado ISP (marcar como prioritarias)
@@ -430,51 +210,6 @@ Cuando el cruce textual del Nivel 1 no produce coincidencia, realizar un segundo
 
 Este doble checkeo es importante porque muchas publicaciones usan nombres genéricos o comerciales que no coinciden con la marca registrada, pero las imágenes del producto sí muestran la marca real del fabricante en el empaque.
 
-#### La marca coincidente NO basta: el registro debe cubrir ESE producto
-
-Encontrar la marca en el listado ISP es el primer paso, no la conclusión. Cada
-registro sanitario ampara **presentaciones concretas**: calibres, medidas y tipo
-de producto. Un producto de marca registrada cuya presentación no está en el
-registro **no está amparado por él**.
-
-Antes de marcar REGISTRADO, verificar que la presentación ofertada aparezca entre
-las que declara el registro. La columna de marca comercial del Excel ISP las
-lista después del nombre de marca.
-
-**Caso real (24-08-2026).** Se clasificó como REGISTRADO una «Aguja Pentapoint
-32G x 4mm BD Ultra-Fine» citando el registro `DM/10AG/0219/09`. Ese registro
-ampara calibres 18G a 27G en longitudes de pulgada, y el listado completo de
-agujas hipodérmicas no contiene ningún 32G ni ninguna medida en milímetros. La
-coincidencia fue solo por la marca «Becton Dickinson». En términos regulatorios
-eso es dar por autorizado un producto que no lo está.
-
-Si la marca coincide pero la presentación no está amparada, **no es REGISTRADO**:
-anotarlo en Observaciones indicando qué calibres sí cubre el registro citado y
-cuál es el ofertado, para que el fiscalizador lo resuelva.
-
-#### Mantenerse dentro de la categoría fiscalizada
-
-Cada listado ISP cubre una familia de producto concreta. Productos parecidos pero
-de otra familia tienen su propio marco regulatorio y no se cruzan contra este
-listado.
-
-En agujas, el listado cubre **agujas hipodérmicas** de 16G a 30G en longitudes de
-pulgada. Quedan fuera:
-
-- **Agujas para lapicera de insulina** (32G x 4mm, 32G x 6mm, 31G x 5mm y
-  similares, en milímetros).
-- **Agujas de mesoterapia** (32G x 4/6mm), aunque se publiquen como
-  «hipodérmicas».
-
-Si la búsqueda arrastra productos de otra familia, no clasificarlos contra este
-listado. Registrarlos aparte en Observaciones como fuera de categoría, o dejarlos
-fuera del reporte. El 24-08-2026, seis de diecisiete hallazgos eran agujas de
-lapicera y mesoterapia mezcladas con las hipodérmicas.
-
-Ante la duda de si un producto pertenece a la categoría, mirar los calibres y
-unidades que usa el listado ISP: si el producto está fuera de ese rango o usa
-otra unidad de medida, casi siempre es de otra familia.
-
 #### Clasificación
 
 Solo dos categorías:
@@ -491,7 +226,7 @@ Crea un archivo `.xlsx` con las siguientes columnas exactas, en este orden:
 
 | # | Columna | Descripción |
 |---|---|---|
-| 1 | Nombre de DM ofertado | Nombre del producto **tal como aparece publicado**, con marca y presentación. **Nunca el nombre de la categoría.** Si todas las filas dicen «Autotest VIH», el inspector no puede distinguir un producto de otro y el reporte no sirve. Ocurrió el 24-08-2026: las 9 filas decían lo mismo. |
+| 1 | Nombre de DM ofertado | Nombre del dispositivo médico tal como aparece en la oferta |
 | 2 | URL | Link directo a la publicación individual del producto (nunca a páginas de búsqueda) |
 | 3 | Título de la publicación | Título completo de la publicación/oferta |
 | 4 | Oferente | Nombre del vendedor, tienda o sitio web (si está disponible) |
@@ -501,7 +236,6 @@ Crea un archivo `.xlsx` con las siguientes columnas exactas, en este orden:
 | 8 | Clasificación | REGISTRADO / NO REGISTRADO |
 | 9 | Observaciones | Notas y consejos para el fiscalizador (ver guía abajo) |
 | 10 | Decisión final | **Dejar en blanco** — Campo reservado para el feedback manual del fiscalizador |
-| 11 | Observaciones del inspector | **Dejar en blanco** — Texto libre del inspector. Se lee en la corrida siguiente como indicación operativa. |
 
 **Guía para la columna Observaciones:**
 La columna Observaciones debe aportar contexto útil al fiscalizador. Ejemplos de lo que incluir:
@@ -519,33 +253,9 @@ La columna Observaciones debe aportar contexto útil al fiscalizador. Ejemplos d
 - Columna "Clasificación": fondo verde claro para REGISTRADO, fondo rojo claro para NO REGISTRADO
 - Columna "Decisión final" con fondo amarillo claro para señalar que requiere input humano
 - Ancho de columnas autoajustado
-- Nombre de archivo: `Fiscalizacion_Web_DM_[CATEGORIA]_[DD-MM-YYYY].xlsx`, donde
-  `[CATEGORIA]` es el **slug estable** de la categoría (el campo `slug` que devuelve
-  `scripts/rotacion.py`, p. ej. `kits-vih-profesional`), no el nombre largo. Usar el
-  slug mantiene los reportes de una misma categoría agrupados y permite que la rutina
-  encuentre el reporte anterior para el ciclo de retroalimentación.
+- Nombre de archivo: `Fiscalizacion_Web_DM_[CATEGORIA]_[FECHA].xlsx`
 
-**Generación del archivo.** No reescribir el generador en cada corrida: el
-repositorio incluye `scripts/generar_reporte.py`, que ya produce este formato
-exacto (las 10 columnas, la hoja "Búsquedas Marketplace", los colores y la fila
-"Sin hallazgos"). Se le pasa un JSON con los hallazgos:
-
-```bash
-python3 scripts/generar_reporte.py --entrada hallazgos.json --auto --slot 1
-```
-
-`--auto --slot N` deduce la categoría, la fecha y la ruta de salida desde
-`scripts/rotacion.py`.
-
-El script imprime un campo `avisos_calidad` cuando detecta problemas: filas que
-usan el nombre de la categoría en vez del producto, REGISTRADO sin número de
-registro, URLs repetidas o páginas de búsqueda. **Corregir el JSON y regenerar
-antes de enviar**: son errores que el inspector no puede resolver por su cuenta. Si no hay hallazgos, basta con `"hallazgos": []`: el script
-emite igualmente el archivo con la fila "Sin hallazgos" y la fecha de revisión,
-que es lo que deja constancia de que la categoría sí se revisó ese día.
-
-Para casos fuera de este formato estándar, consulta la skill
-`/mnt/skills/public/xlsx/SKILL.md`.
+Para la generación del Excel, consulta la skill `/mnt/skills/public/xlsx/SKILL.md` para seguir las mejores prácticas de formato.
 
 #### B) Resumen en texto
 
@@ -559,13 +269,7 @@ Después de presentar el Excel, proporciona un resumen conciso en el chat que in
 
 ## Ciclo de retroalimentación
 
-El feedback dejó de ser manual: los inspectores suben los Excel completados a la
-carpeta `revision/` del repositorio y `scripts/feedback.py` los lee al inicio de
-cada corrida (ver "Paso 0-ter"). Las URL ya evaluadas se excluyen automáticamente
-y las correcciones del inspector ajustan el criterio de cruce.
-
-Los campos "Decisión final" y "Observaciones del inspector" permiten registrar la
-evaluación manual de cada caso. Este feedback es valioso para mejorar la skill:
+El campo "Decisión final" del Excel permite al fiscalizador registrar su evaluación manual de cada caso. Este feedback es valioso para mejorar la skill:
 
 - Si el fiscalizador marca un caso que la skill clasificó como NO REGISTRADO pero que en realidad sí lo está (falso negativo), esto indica que los criterios de coincidencia deben ampliarse.
 - Si el fiscalizador marca un caso como NO REGISTRADO que la skill clasificó como REGISTRADO (falso positivo), esto indica que los criterios de coincidencia son demasiado laxos.
@@ -573,13 +277,6 @@ evaluación manual de cada caso. Este feedback es valioso para mejorar la skill:
 
 **Aprendizajes de retroalimentaciones anteriores:**
 - Distinguir entre test de autodiagnóstico (autotest) y test de uso profesional. Son categorías regulatorias distintas. Si un producto parece ser de uso profesional, anotar en Observaciones.
-- **Alcance territorial**: los resultados de buscadores mezclan tiendas de México,
-  Venezuela, España y EE.UU. con las chilenas. Un producto de marca no registrada
-  en una tienda que no vende a Chile **no es hallazgo**; descartarlo y dejar
-  constancia del descarte en el resumen (ver "Solo ofertas con alcance en Chile").
-- **Marketplaces bloqueados**: Mercado Libre y Falabella devuelven 403 a la
-  obtención directa de publicaciones. No insistir ni tratarlo como error de la
-  corrida: registrar lo observable en la hoja "Búsquedas Marketplace" y seguir.
 - Algunos productos pueden tener registro sanitario en una categoría distinta a la que se está fiscalizando (ej: un test VIH de uso profesional tiene registro en la lista de Kits VIH profesional, no en la de Autotest). Verificar cruzando con las listas de categorías relacionadas.
 
 Cuando el usuario proporcione un Excel con la columna "Decisión final" completada, analiza las discrepancias entre la clasificación automática y la decisión del fiscalizador, e identifica patrones para proponer mejoras a la skill.
