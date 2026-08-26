@@ -111,57 +111,67 @@ que **son de uso obligatorio** en la corrida:
    como indicación operativa: sitios que pidió mirar, marcas a vigilar, criterios
    a afinar. Si contradice a esta skill, **manda el inspector**.
 
-### Objetivo de volumen y mezcla
+### Tope de 10 hallazgos por reporte
 
-Cada corrida apunta a **20 hallazgos**, con una mezcla esperada de **60% NO
-REGISTRADO y 40% REGISTRADO**.
+Cada reporte lleva **como máximo 10 hallazgos**. Es un límite de **carga de
+revisión para el inspector**, no un límite de esfuerzo de búsqueda. La distinción
+es la que hace que el tope funcione:
 
-Eso es un **objetivo de esfuerzo de búsqueda**, no una cuota que haya que
-rellenar. La diferencia es la que separa una fiscalización de un informe
-inventado, así que es importante:
+- **La búsqueda sigue siendo exhaustiva.** Agotar las capas, probar sinónimos y
+  variantes en inglés, recorrer tiendas chicas y marketplaces. Detenerse al
+  encontrar 10 daría los 10 primeros, no los 10 que más importan: las tiendas
+  grandes y formales son las que mejor indexan, así que una búsqueda corta
+  devuelve sobre todo productos que sí cumplen.
+- **El recorte se hace al final**, sobre todo lo encontrado y ya clasificado.
 
-- **Sí**: seguir buscando hasta llegar a 20. Agotar las capas de búsqueda, probar
-  sinónimos y variantes en inglés, recorrer más tiendas, revisar más páginas de
-  resultados, bajar a publicaciones individuales que antes se descartaron por
-  pereza. Que la corrida anterior encontrara 3 casi siempre significa que faltó
-  buscar, no que no exista más.
-- **Nunca**: inventar hallazgos, repetir una URL para inflar el conteo, registrar
-  páginas de búsqueda como si fueran publicaciones, incluir tiendas extranjeras
-  que no venden a Chile, ni **reclasificar un producto para que calce el 60/40**.
+`scripts/generar_reporte.py` aplica el tope solo: ordena poniendo primero los NO
+REGISTRADO y corta en 10. Un NO REGISTRADO es un caso que hay que investigar; un
+REGISTRADO es una confirmación. Si hay que dejar algo fuera, se deja fuera la
+confirmación, nunca una posible infracción.
 
-La clasificación sale del cruce con el listado ISP y de nada más. Si al agotar la
-búsqueda hay 12 hallazgos, o si salen 90% no registrados, **se reporta eso**, con
-una nota de qué se buscó y hasta dónde se llegó. Un número real bajo es un dato
-útil para el inspector; uno inflado le hace abrir un sumario contra un oferente
-que no corresponde.
+Lo que excede el tope va a una hoja **«Anexo — sobre el tope»**, marcada como que
+no requiere revisión esa semana. Como esas ofertas no quedan registradas como
+evaluadas, `scripts/feedback.py` no las excluye y **vuelven a considerarse en la
+corrida siguiente** de la categoría. No se pierden.
 
-La proporción 60/40 sirve además como señal de calidad, y hay que **actuar sobre
-ella antes de reportar, no solo anotarla**:
+**En el correo y en la notificación se informa sobre el total detectado, no sobre
+los 10.** Si se revisaron 16 ofertas y se incluyen 10, hay que decirlo: el
+inspector necesita saber el tamaño real de lo encontrado para dimensionar el
+problema.
 
-- **Todo NO REGISTRADO** → lo más probable es que el cruce esté fallando. Revisar
-  el emparejamiento de marcas antes de emitir el reporte.
+La mezcla registrado / no registrado se calcula también sobre el total detectado,
+porque sigue siendo la señal de calidad de la búsqueda:
+
+- **Todo NO REGISTRADO** → probablemente el cruce esté fallando. Revisar el
+  emparejamiento de marcas antes de emitir el reporte.
 - **Todo REGISTRADO** → la búsqueda se quedó en las tiendas grandes y formales,
-  que son justamente las que sí cumplen. Es un falso "todo en orden". Antes de
-  cerrar, hacer al menos otra ronda buscando: publicaciones sin marca declarada
-  en el título, tiendas pequeñas y no especializadas, marketplaces, y
-  vendedores que oferten al público general un producto de uso profesional.
-  Ocurrió con Autotest VIH el 24-08-2026: 9 hallazgos, los 9 registrados.
+  que son justamente las que sí cumplen. Es un falso «todo en orden». Antes de
+  cerrar, hacer otra ronda buscando publicaciones sin marca declarada en el
+  título, tiendas pequeñas y no especializadas, marketplaces, y venta al público
+  general de productos de uso profesional. Ocurrió con Autotest VIH el
+  24-08-2026: 9 hallazgos, los 9 registrados; una segunda ronda encontró 3 sin
+  registro.
+
+Nunca inventar hallazgos, repetir una URL para llenar el cupo, registrar páginas
+de búsqueda como si fueran publicaciones, ni reclasificar un producto para que
+calce una proporción. Si al agotar la búsqueda hay 4 hallazgos, se reportan 4.
 
 ### Paso 5-bis — Persistir en Git (OBLIGATORIO)
 
 Al terminar, en este orden:
 
 ```bash
-python3 scripts/rotacion.py --slot <N> --avanzar --hallazgos <M>   # actualiza el estado
-git add resultados/ estado-rotacion.json
+python3 scripts/rotacion.py --slot <N> --avanzar --hallazgos <M> --detectados <T>
+git add resultados/ historial/
 git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
 
 # Los dos bloques del día corren casi a la misma hora y empujan a la misma rama,
-# así que el push puede ser rechazado por no ser fast-forward. Reintegrar y
-# reintentar en vez de darlo por perdido:
+# así que el push puede ser rechazado por no ser fast-forward. Cada corrida
+# registra su historial en un archivo propio (historial/<fecha>_slot<N>.json),
+# de modo que el rebase no encuentra archivo compartido que conflictuar.
 for intento in 1 2 3; do
   git push origin main && break
-  git pull --rebase origin main || break
+  git pull --rebase origin main
 done
 ```
 
@@ -172,6 +182,14 @@ error textual — nunca terminar en silencio dando por hecho que se guardó.
 Registrar la categoría como procesada **solo si el push tuvo éxito**. Si se
 avanza el estado y el push falla, la categoría queda marcada como hecha sin que
 exista el reporte, y la rotación se la salta en el ciclo siguiente.
+
+**Por qué el historial va en archivos separados.** Hasta el 26-08-2026 las dos
+corridas del día editaban el mismo `estado-rotacion.json`. Como corren con dos
+minutos de diferencia y empujan a la misma rama, la segunda chocaba en ese
+archivo: el `git pull --rebase` fallaba por el conflicto, el push a `main` no
+ocurría y el reporte quedaba varado en una rama suelta que nadie miraba. Pasó dos
+días seguidos, con Desfibriladores y con Jeringas con agujas. Ahora cada corrida
+escribe `historial/<fecha>_slot<N>.json`, un archivo que ninguna otra toca.
 
 ### Paso 5-ter — Enviar el reporte al inspector de la semana
 

@@ -36,6 +36,7 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR_ISP = os.path.join(RAIZ, "registros-isp")
 DIR_RESULTADOS = os.path.join(RAIZ, "resultados")
 DIR_REVISION = os.path.join(RAIZ, "revision")
+DIR_HISTORIAL = os.path.join(RAIZ, "historial")
 ARCHIVO_ESTADO = os.path.join(RAIZ, "estado-rotacion.json")
 
 # Orden canónico del ciclo de fiscalización. El `slug` es la clave estable que
@@ -173,6 +174,41 @@ def categoria_de(fecha, slot):
         raise ValueError("slot debe ser 1 o 2")
     return delDia[slot - 1]
 
+
+
+def leer_historial():
+    """Lee el historial desde historial/, un archivo por corrida.
+
+    Antes las dos corridas del día editaban el mismo estado-rotacion.json. Como
+    corren con dos minutos de diferencia y empujan a la misma rama, la segunda
+    chocaba en ese archivo: el `git pull --rebase` del reintento fallaba por el
+    conflicto y el push a main nunca ocurría, dejando el reporte varado en una
+    rama suelta. Pasó el 25 y el 26 de agosto.
+
+    Con un archivo por corrida no hay archivo compartido y el conflicto no puede
+    producirse.
+    """
+    entradas = []
+    for ruta in sorted(glob.glob(os.path.join(DIR_HISTORIAL, "*.json"))):
+        try:
+            with open(ruta, encoding="utf-8") as fh:
+                entradas.append(json.load(fh))
+        except (json.JSONDecodeError, OSError):
+            continue  # un registro ilegible no debe tumbar la corrida
+    # Compatibilidad con el estado antiguo, para no perder lo ya registrado.
+    if os.path.exists(ARCHIVO_ESTADO):
+        try:
+            with open(ARCHIVO_ESTADO, encoding="utf-8") as fh:
+                entradas.extend(json.load(fh).get("historial", []))
+        except (json.JSONDecodeError, OSError):
+            pass
+    vistos, out = set(), []
+    for h in sorted(entradas, key=lambda x: (x.get("fecha", ""), x.get("slot", 0))):
+        k = (h.get("categoria"), h.get("fecha"), h.get("slot"))
+        if k not in vistos:
+            vistos.add(k)
+            out.append(h)
+    return out
 
 
 def cargar_estado():
@@ -348,15 +384,16 @@ def plan_semana(fecha=None):
     return {"lunes": lunes.isoformat(), "inspector": inspector_de(fecha), "bloques": filas}
 
 
-def avanzar(fecha=None, slot=1, hallazgos=None, notas=""):
-    """Registra el bloque como procesado. Llamar SOLO tras un push exitoso."""
-    estado = cargar_estado()
+def avanzar(fecha=None, slot=1, hallazgos=None, notas="", detectados=None):
+    """Registra el bloque como procesado. Llamar SOLO tras un push exitoso.
+
+    Escribe un archivo propio en historial/, nunca un archivo compartido: es lo
+    que evita que las dos corridas del día choquen al empujar a la misma rama.
+    """
     plan = construir_plan(fecha, slot)
     if not plan["habil"]:
         return plan
 
-    estado["ultima_categoria"] = plan["slug"]
-    estado["ultima_fecha"] = plan["fecha_iso"]
     entrada = {
         "categoria": plan["slug"],
         "nombre": plan["categoria"],
@@ -368,21 +405,23 @@ def avanzar(fecha=None, slot=1, hallazgos=None, notas=""):
     }
     if hallazgos is not None:
         entrada["hallazgos"] = hallazgos
+    if detectados is not None:
+        entrada["detectados"] = detectados
     if notas:
         entrada["notas"] = notas
 
-    # Idempotencia: reejecutar el mismo bloque el mismo día no duplica el registro.
-    estado["historial"] = [
-        h for h in estado["historial"]
-        if not (h.get("fecha") == entrada["fecha"] and h.get("slot") == slot)
-    ]
-    estado["historial"].append(entrada)
-    guardar_estado(estado)
+    os.makedirs(DIR_HISTORIAL, exist_ok=True)
+    destino = os.path.join(DIR_HISTORIAL, f"{plan['fecha_iso']}_slot{slot}.json")
+    with open(destino, "w", encoding="utf-8") as fh:
+        json.dump(entrada, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    plan["registro"] = destino
     return plan
 
 
 def cobertura():
     """Qué categorías tienen reporte y cuáles fueron revisadas por un inspector."""
+    hist = leer_historial()
     filas = []
     for cat in CATEGORIAS:
         previos = reportes_previos(cat)
@@ -400,6 +439,7 @@ def cobertura():
                 "reportes": len(previos["crudos"]),
                 "revisados": len(previos["revisados"]),
                 "ultimo": os.path.basename(reporte_previo(cat) or "") or "nunca",
+                "corridas": sum(1 for h in hist if h.get("categoria") == cat["slug"]),
             }
         )
     return filas
@@ -413,7 +453,8 @@ def main():
     ap.add_argument("--avanzar", action="store_true", help="registrar como procesado")
     ap.add_argument("--semana", action="store_true", help="plan de la semana")
     ap.add_argument("--estado", action="store_true", help="cobertura histórica")
-    ap.add_argument("--hallazgos", type=int, default=None, help="n.º de hallazgos")
+    ap.add_argument("--hallazgos", type=int, default=None, help="n.º de hallazgos incluidos")
+    ap.add_argument("--detectados", type=int, default=None, help="n.º de ofertas detectadas en total")
     ap.add_argument("--notas", default="", help="nota libre para el historial")
     args = ap.parse_args()
 
@@ -442,7 +483,7 @@ def main():
                 )
         return 0
 
-    plan = avanzar(fecha, args.slot, args.hallazgos, args.notas) if args.avanzar else construir_plan(fecha, args.slot)
+    plan = avanzar(fecha, args.slot, args.hallazgos, args.notas, args.detectados) if args.avanzar else construir_plan(fecha, args.slot)
 
     if args.json:
         print(json.dumps(plan, ensure_ascii=False, indent=2))
@@ -465,7 +506,7 @@ def main():
     print(f"Inspector      : {insp['nombre']} <{insp['email']}>  (semana {insp['semana_ciclo']}/3)")
     print(f"Salida         : {plan['archivo_salida']}")
     if args.avanzar:
-        print("\nEstado actualizado en estado-rotacion.json")
+        print(f"\nCorrida registrada en {os.path.relpath(plan.get('registro',''), RAIZ)}")
     if not plan["excel_encontrado"]:
         print(f"\nADVERTENCIA: falta el Excel ISP ({POR_SLUG[plan['slug']]['patron']})", file=sys.stderr)
         return 2

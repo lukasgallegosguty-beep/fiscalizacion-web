@@ -46,8 +46,11 @@ from openpyxl.utils import get_column_letter
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Objetivo de esfuerzo de búsqueda (ver SKILL.md). No es una cuota a rellenar.
-OBJETIVO = 20
+# Tope de hallazgos por reporte. Es un límite de CARGA DE REVISIÓN para el
+# inspector, no un límite de esfuerzo de búsqueda: la búsqueda sigue siendo
+# exhaustiva y lo que excede el tope queda documentado en la hoja "Anexo" para
+# que reaparezca en la corrida siguiente de la categoría.
+MAX_HALLAZGOS = 10
 
 # Paleta institucional: azul ISP para encabezados.
 AZUL_ISP = "003366"
@@ -79,6 +82,14 @@ COLUMNAS_MKT = [
     ("Cantidad aprox. de publicaciones", 18, "cantidad_aprox"),
     ("Observaciones para el fiscalizador", 70, "observaciones"),
     ("Observaciones del inspector", 60, "obs_inspector"),
+]
+
+COLUMNAS_ANEXO = [
+    ("Nombre de DM ofertado", 40, "nombre_dm"),
+    ("URL", 52, "url"),
+    ("Oferente", 26, "oferente"),
+    ("Clasificación", 18, "clasificacion"),
+    ("Observaciones", 70, "observaciones"),
 ]
 
 BORDE = Border(*[Side(style="thin", color="C8CDD4")] * 4)
@@ -210,10 +221,27 @@ def validar(datos):
     return avisos
 
 
+def priorizar(hallazgos):
+    """Ordena por valor para el inspector y separa lo que excede el tope.
+
+    Un NO REGISTRADO es un caso que hay que investigar; un REGISTRADO es una
+    confirmación. Si hay que recortar, se recorta por el lado que menos trabajo
+    genera, nunca dejando fuera una posible infracción para dejar dentro un
+    producto que ya sabemos que cumple.
+    """
+    def rango(h):
+        c = str(h.get("clasificacion", "")).strip().upper()
+        return {"NO REGISTRADO": 0, "REGISTRADO": 1}.get(c, 2)
+
+    ordenados = sorted(hallazgos, key=rango)
+    return ordenados[:MAX_HALLAZGOS], ordenados[MAX_HALLAZGOS:]
+
+
 def generar(datos, salida):
     categoria = datos.get("categoria", "(sin categoría)")
     fecha = datos.get("fecha") or date.today().strftime("%d-%m-%Y")
-    hallazgos = datos.get("hallazgos") or []
+    todos = datos.get("hallazgos") or []
+    hallazgos, excedentes = priorizar(todos)
     marketplace = datos.get("marketplace") or []
 
     wb = Workbook()
@@ -224,6 +252,31 @@ def generar(datos, salida):
     filas = hallazgos if hallazgos else [_fila_sin_hallazgos(fecha, categoria)]
     _escribir_filas(ws, COLUMNAS, filas)
     ws.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNAS))}{len(filas) + 1}"
+
+    if excedentes:
+        ws3 = wb.create_sheet("Anexo — sobre el tope")
+        _encabezados(ws3, COLUMNAS_ANEXO)
+        filas_anexo = [
+            {
+                "nombre_dm": h.get("nombre_dm", ""),
+                "url": h.get("url", ""),
+                "oferente": h.get("oferente", ""),
+                "clasificacion": h.get("clasificacion", ""),
+                "observaciones": h.get("observaciones", ""),
+            }
+            for h in excedentes
+        ]
+        _escribir_filas(ws3, COLUMNAS_ANEXO, filas_anexo, colorear_clasificacion=False)
+        ws3.cell(
+            row=len(filas_anexo) + 2,
+            column=1,
+            value=(
+                f"Estas {len(excedentes)} ofertas se detectaron en la misma búsqueda pero "
+                f"quedaron fuera del reporte por el tope de {MAX_HALLAZGOS} hallazgos. "
+                "NO requieren revisión esta semana. Al no quedar registradas como "
+                "evaluadas, vuelven a considerarse en la próxima corrida de la categoría."
+            ),
+        ).font = Font(italic=True, size=9)
 
     if marketplace:
         ws2 = wb.create_sheet("Búsquedas Marketplace")
@@ -236,6 +289,9 @@ def generar(datos, salida):
     return {
         "archivo": salida,
         "total": len(hallazgos),
+        "total_detectado": len(todos),
+        "excedentes": len(excedentes),
+        "tope": MAX_HALLAZGOS,
         "no_registrado": sum(
             1 for h in hallazgos
             if str(h.get("clasificacion", "")).strip().upper() == "NO REGISTRADO"
@@ -288,19 +344,28 @@ def main():
     if avisos:
         resumen["avisos_calidad"] = avisos
 
-    # Contraste contra el objetivo de esfuerzo. Es informativo: si la realidad no
-    # alcanza la meta se reporta el número real, nunca se rellena ni se reclasifica.
-    total = resumen["total"]
-    resumen["objetivo_hallazgos"] = OBJETIVO
-    resumen["alcanza_objetivo"] = total >= OBJETIVO
-    if total:
-        resumen["pct_no_registrado"] = round(100 * resumen["no_registrado"] / total, 1)
-        resumen["pct_registrado"] = round(100 * resumen["registrado"] / total, 1)
-    if total < OBJETIVO:
-        resumen["aviso"] = (
-            f"Se encontraron {total} hallazgos, bajo el objetivo de {OBJETIVO}. "
-            "Informar el número real en la notificación; no completar con casos "
-            "inventados ni con páginas de búsqueda."
+    # El reporte va topado, pero el resumen informa sobre TODO lo revisado: la
+    # mezcla registrado/no registrado sigue siendo la señal de si la búsqueda
+    # fue profunda o se quedó en las tiendas grandes.
+    detectado = resumen["total_detectado"]
+    if detectado:
+        nr = sum(1 for h in (datos.get("hallazgos") or [])
+                 if str(h.get("clasificacion", "")).strip().upper() == "NO REGISTRADO")
+        rg = sum(1 for h in (datos.get("hallazgos") or [])
+                 if str(h.get("clasificacion", "")).strip().upper() == "REGISTRADO")
+        resumen["detectado_no_registrado"] = nr
+        resumen["detectado_registrado"] = rg
+        resumen["pct_no_registrado_detectado"] = round(100 * nr / detectado, 1)
+        if rg == detectado:
+            resumen["aviso"] = (
+                "TODOS los hallazgos salieron REGISTRADO. Señal de que la búsqueda se "
+                "quedó en las tiendas grandes y formales. Haz otra ronda antes de cerrar."
+            )
+    if resumen["excedentes"]:
+        resumen["nota_tope"] = (
+            f"Se detectaron {detectado} ofertas; se incluyen las {resumen['total']} más "
+            f"relevantes por el tope de {resumen['tope']}. Las {resumen['excedentes']} "
+            "restantes quedaron en la hoja «Anexo» y reaparecerán en la próxima corrida."
         )
 
     print(json.dumps(resumen, ensure_ascii=False, indent=2))
