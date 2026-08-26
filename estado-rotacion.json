@@ -10,9 +10,8 @@
       "slot": 1,
       "archivo": "Fiscalizacion_Web_DM_agujas-hipodermicas_24-08-2026.xlsx",
       "inspector": "emillan@ispch.cl",
-      "hallazgos": 10,
-      "notas": "Reporte topado a 10 hallazgos por carga de revisión; el resto quedó en la hoja de anexo.",
-      "detectados": 16
+      "hallazgos": 16,
+      "notas": "Reporte corregido: nombres reales de producto, verificación de calibre contra el registro citado y exclusión de productos fuera de categoría."
     },
     {
       "categoria": "autotest-vih",
@@ -22,9 +21,8 @@
       "slot": 2,
       "archivo": "Fiscalizacion_Web_DM_autotest-vih_24-08-2026.xlsx",
       "inspector": "emillan@ispch.cl",
-      "hallazgos": 10,
-      "notas": "Reporte topado a 10 hallazgos por carga de revisión; el resto quedó en la hoja de anexo.",
-      "detectados": 13
+      "hallazgos": 13,
+      "notas": "Reporte corregido: nombres reales de producto, verificación de calibre contra el registro citado y exclusión de productos fuera de categoría."
     },
     {
       "categoria": "guantes-examinacion",
