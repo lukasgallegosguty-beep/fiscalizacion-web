@@ -1,6 +1,6 @@
 {
-  "ultima_categoria": "guantes-examinacion",
-  "ultima_fecha": "2026-08-25",
+  "ultima_categoria": "guantes-quirurgicos",
+  "ultima_fecha": "2026-08-26",
   "historial": [
     {
       "categoria": "agujas-hipodermicas",
@@ -31,6 +31,16 @@
       "dia": "martes",
       "slot": 2,
       "archivo": "Fiscalizacion_Web_DM_guantes-examinacion_25-08-2026.xlsx",
+      "inspector": "emillan@ispch.cl",
+      "hallazgos": 19
+    },
+    {
+      "categoria": "guantes-quirurgicos",
+      "nombre": "Guantes quirúrgicos de látex",
+      "fecha": "2026-08-26",
+      "dia": "miércoles",
+      "slot": 1,
+      "archivo": "Fiscalizacion_Web_DM_guantes-quirurgicos_26-08-2026.xlsx",
       "inspector": "emillan@ispch.cl",
       "hallazgos": 19
     }
