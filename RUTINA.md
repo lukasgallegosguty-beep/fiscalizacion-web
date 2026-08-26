@@ -120,15 +120,19 @@ inspector. Si no hay hallazgos, pasa "hallazgos": [] igual.
 
 PASO 5 — PERSISTIR EN GIT (OBLIGATORIO)
 En este orden exacto:
-  1. python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos <N>
-  2. git add resultados/ estado-rotacion.json
+  1. python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos <incluidos> --detectados <total>
+  2. git add resultados/ historial/
   3. git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
   4. Empuja a main reintentando, porque el otro bloque del día corre casi a la
-     misma hora y puede haber empujado antes que tú:
+     misma hora y puede haber empujado antes que tú. Ya no hay archivo
+     compartido entre bloques, así que el rebase no debería conflictuar:
        for intento in 1 2 3; do
          git push origin main && break
-         git pull --rebase origin main || break
+         git pull --rebase origin main
        done
+     Si aun así el rebase falla, NO abandones el push: resuelve el conflicto
+     conservando ambos lados y vuelve a intentar. Que el reporte quede en una
+     rama suelta significa que el inspector no lo recibe.
   5. Verifica que git status no muestre commits sin subir, y anota en qué rama
      quedó finalmente el archivo: lo necesitas para el enlace del paso 6.
 Si el push falla, dilo en la notificación con el error textual. Nunca termines en

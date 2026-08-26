@@ -161,16 +161,17 @@ calce una proporción. Si al agotar la búsqueda hay 4 hallazgos, se reportan 4.
 Al terminar, en este orden:
 
 ```bash
-python3 scripts/rotacion.py --slot <N> --avanzar --hallazgos <M>   # actualiza el estado
-git add resultados/ estado-rotacion.json
+python3 scripts/rotacion.py --slot <N> --avanzar --hallazgos <M> --detectados <T>
+git add resultados/ historial/
 git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
 
 # Los dos bloques del día corren casi a la misma hora y empujan a la misma rama,
-# así que el push puede ser rechazado por no ser fast-forward. Reintegrar y
-# reintentar en vez de darlo por perdido:
+# así que el push puede ser rechazado por no ser fast-forward. Cada corrida
+# registra su historial en un archivo propio (historial/<fecha>_slot<N>.json),
+# de modo que el rebase no encuentra archivo compartido que conflictuar.
 for intento in 1 2 3; do
   git push origin main && break
-  git pull --rebase origin main || break
+  git pull --rebase origin main
 done
 ```
 
@@ -181,6 +182,14 @@ error textual — nunca terminar en silencio dando por hecho que se guardó.
 Registrar la categoría como procesada **solo si el push tuvo éxito**. Si se
 avanza el estado y el push falla, la categoría queda marcada como hecha sin que
 exista el reporte, y la rotación se la salta en el ciclo siguiente.
+
+**Por qué el historial va en archivos separados.** Hasta el 26-08-2026 las dos
+corridas del día editaban el mismo `estado-rotacion.json`. Como corren con dos
+minutos de diferencia y empujan a la misma rama, la segunda chocaba en ese
+archivo: el `git pull --rebase` fallaba por el conflicto, el push a `main` no
+ocurría y el reporte quedaba varado en una rama suelta que nadie miraba. Pasó dos
+días seguidos, con Desfibriladores y con Jeringas con agujas. Ahora cada corrida
+escribe `historial/<fecha>_slot<N>.json`, un archivo que ninguna otra toca.
 
 ### Paso 5-ter — Enviar el reporte al inspector de la semana
 
