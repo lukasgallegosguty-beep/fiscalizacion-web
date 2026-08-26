@@ -1,6 +1,6 @@
 {
-  "ultima_categoria": "guantes-examinacion",
-  "ultima_fecha": "2026-08-25",
+  "ultima_categoria": "jeringas-con-agujas",
+  "ultima_fecha": "2026-08-26",
   "historial": [
     {
       "categoria": "agujas-hipodermicas",
@@ -33,6 +33,16 @@
       "archivo": "Fiscalizacion_Web_DM_guantes-examinacion_25-08-2026.xlsx",
       "inspector": "emillan@ispch.cl",
       "hallazgos": 19
+    },
+    {
+      "categoria": "jeringas-con-agujas",
+      "nombre": "Jeringas con agujas hipodérmicas",
+      "fecha": "2026-08-26",
+      "dia": "miércoles",
+      "slot": 2,
+      "archivo": "Fiscalizacion_Web_DM_jeringas-con-agujas_26-08-2026.xlsx",
+      "inspector": "emillan@ispch.cl",
+      "hallazgos": 20
     }
   ]
 }
