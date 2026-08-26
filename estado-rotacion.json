@@ -25,6 +25,16 @@
       "notas": "Reporte corregido: nombres reales de producto, verificación de calibre contra el registro citado y exclusión de productos fuera de categoría."
     },
     {
+      "categoria": "desfibriladores-dea",
+      "nombre": "Desfibriladores externos automáticos (DEA)",
+      "fecha": "2026-08-25",
+      "dia": "martes",
+      "slot": 1,
+      "archivo": "Fiscalizacion_Web_DM_desfibriladores-dea_25-08-2026.xlsx",
+      "inspector": "emillan@ispch.cl",
+      "hallazgos": 20
+    },
+    {
       "categoria": "guantes-examinacion",
       "nombre": "Guantes de examen médico",
       "fecha": "2026-08-25",
