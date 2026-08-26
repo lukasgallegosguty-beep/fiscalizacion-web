@@ -80,13 +80,18 @@ Es de uso obligatorio:
 PASO 3 — FISCALIZACIÓN
 Ejecuta el flujo completo de la skill fiscalizacion-dm-web para esa categoría,
 cruzando contra el Excel ISP indicado.
-Objetivo: 20 hallazgos, alrededor de 60% NO REGISTRADO y 40% REGISTRADO.
-Es un objetivo de ESFUERZO DE BÚSQUEDA, no una cuota. Agota las capas de
-búsqueda, prueba sinónimos y variantes en inglés, recorre más tiendas y baja a
-publicaciones individuales antes de darte por satisfecho. Pero NUNCA inventes
-hallazgos, repitas URLs para inflar el conteo, registres páginas de búsqueda ni
-reclasifiques un producto para que calce la proporción. Si al agotar la búsqueda
-hay menos de 20, informa el número real y qué buscaste.
+El reporte lleva un TOPE DE 10 HALLAZGOS, pero eso NO es un tope de búsqueda.
+Busca de forma exhaustiva igual que siempre: agota las capas, prueba sinónimos y
+variantes en inglés, recorre tiendas chicas y marketplaces. Si te detienes al
+llegar a 10 vas a entregar los 10 primeros y no los 10 que más importan, porque
+las tiendas grandes y formales son las que mejor indexan y son las que sí
+cumplen.
+Clasifica TODO lo que encuentres y pásalo completo al generador: el script aplica
+el tope solo, poniendo primero los NO REGISTRADO y mandando el resto a una hoja
+de anexo que reaparecerá en la próxima corrida.
+NUNCA inventes hallazgos, repitas URLs para llenar el cupo, registres páginas de
+búsqueda ni reclasifiques un producto para que calce una proporción. Si al agotar
+la búsqueda hay 4, reporta 4.
 Respeta las dos reglas críticas: solo publicaciones individuales de producto, y
 solo ofertas con alcance real en Chile.
 Si al terminar TODOS los hallazgos salieron REGISTRADO, no cierres: es señal de
@@ -145,17 +150,19 @@ Si el push a main no se completó y el archivo quedó en otra rama, reemplaza ma
 por el nombre de esa rama en la URL y dilo en el cuerpo.
 
   Asunto: Fiscalización web DM — <Categoría> — <DD-MM-YYYY>
-  Cuerpo: el enlace de descarga bien visible; categoría y fecha; total de
-    hallazgos y desglose por clasificación; si se alcanzó el objetivo de 20 y si
-    no, por qué; los 3 casos más relevantes; descartados por jurisdicción;
-    marketplaces que bloquearon el acceso. Cierra recordando que debe completar
-    "Decisión final" y "Observaciones del inspector" y subir el archivo a la
-    carpeta revision/ del repositorio.
+  Cuerpo: el enlace de descarga bien visible; categoría y fecha; CUÁNTAS OFERTAS
+    SE REVISARON EN TOTAL y cuántas se incluyen (el tope es 10, informa el total
+    detectado para que dimensione el problema); desglose por clasificación sobre
+    el total; los 3 casos más relevantes; descartados por jurisdicción;
+    marketplaces que bloquearon el acceso. Si hubo anexo, aclara que esas
+    ofertas NO requieren revisión esta semana. Cierra recordando que debe
+    completar "Decisión final" y "Observaciones del inspector" y subir el archivo
+    a la carpeta revision/ del repositorio.
 Si el envío falla, informa el error. No deshagas el commit: el reporte ya está en
 el repositorio.
 
 PASO 7 — NOTIFICACIÓN
-Informa: categoría y bloque; total de hallazgos y desglose; si se alcanzó el
-objetivo; los 3 casos más relevantes; descartados por jurisdicción; marketplaces
+Informa: categoría y bloque; ofertas revisadas en total y cuántas se incluyeron
+tras el tope de 10; desglose por clasificación; los 3 casos más relevantes; descartados por jurisdicción; marketplaces
 bloqueados; confirmación del push; y a quién se envió el correo.
 ```
