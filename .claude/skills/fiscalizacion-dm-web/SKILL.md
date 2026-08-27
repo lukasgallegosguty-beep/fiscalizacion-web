@@ -475,6 +475,35 @@ Ante la duda de si un producto pertenece a la categoría, mirar los calibres y
 unidades que usa el listado ISP: si el producto está fuera de ese rango o usa
 otra unidad de medida, casi siempre es de otra familia.
 
+**Cuando TODO el listado describe un material y el producto es de otro, es una
+pregunta, no una infracción.** Antes de acusar por esa vía, mirar qué describen
+los registros del listado completo, no solo el de la marca coincidente. Si los 57
+registros dicen «guante de caucho» y el producto ofertado es de nitrilo, hay dos
+lecturas posibles y la rutina no puede elegir entre ellas:
+
+1. El nitrilo sí requiere registro y ninguno lo tiene → son infracciones.
+2. El listado define el producto regulado como el de caucho, y el nitrilo
+   pertenece a otra categoría o no está bajo control obligatorio → están fuera de
+   alcance y acusarlos es un error.
+
+En ese caso **no clasificar como NO REGISTRADO**. Dejar la clasificación en
+blanco o marcarla como fuera de alcance, y explicar en Observaciones qué material
+describen todos los registros del listado, cuál es el del producto, y que la
+decisión requiere criterio regulatorio del fiscalizador.
+
+**Caso real (25-08-2026).** El reporte de Guantes de examinación acusó 13
+productos de nitrilo y vinilo razonando que sus marcas —HEALTH TOUCH, MUNCARE,
+TRESOR, TOP GLOVE— figuran en el listado solo como látex. El razonamiento sobre
+los registros era correcto, pero el listado completo tiene 57 registros y los 57
+son «guante de caucho para examen médico»: ninguno de nitrilo ni vinilo. El
+Decreto Exento N°342/04 incorporó al control obligatorio los guantes de examen
+de caucho. Que el nitrilo esté o no cubierto es una pregunta regulatoria abierta,
+y la rutina la respondió sola con 13 acusaciones.
+
+La señal de alerta es cuantitativa y fácil de ver: si el listado entero describe
+un solo material y varios hallazgos son de otro, revisar el alcance antes de
+emitir el reporte.
+
 #### Clasificación
 
 Solo dos categorías:
