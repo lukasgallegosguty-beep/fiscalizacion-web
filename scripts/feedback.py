@@ -23,6 +23,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 
 from openpyxl import load_workbook
@@ -43,10 +44,30 @@ def _norm(v):
 
 
 def _veredicto(texto):
-    """Interpreta la 'Decisión final'. Devuelve REGISTRADO, NO REGISTRADO u OTRO."""
+    """Interpreta la 'Decisión final' que escribió el inspector.
+
+    Los inspectores responden a la pregunta «¿acertó la rutina?», no repiten la
+    clasificación. El vocabulario real observado es Correcto / Incorrecto, con
+    erratas frecuentes. Antes solo se reconocía REGISTRADO / NO REGISTRADO, así
+    que las 29 decisiones del primer lote cayeron en «otro» y el conteo de
+    falsos positivos y negativos salió en cero sin que nada avisara.
+
+    Devuelve:
+      "CORRECTO"      -> la clasificación automática se confirma
+      "INCORRECTO"    -> la clasificación automática está equivocada
+      "REGISTRADO" / "NO REGISTRADO" -> el inspector reclasificó explícitamente
+      None            -> celda vacía
+      "OTRO"          -> texto que no se pudo interpretar (se reporta aparte)
+    """
     t = _norm(texto)
     if not t:
         return None
+    # "Incorrecto", "Incorreto", "incorrecta"... antes que "correcto",
+    # porque "incorrecto" contiene "correcto".
+    if re.search(r"\bin\s*correc|incorrec|incorret|erron|equivoc|no correspond", t):
+        return "INCORRECTO"
+    if re.search(r"\bcorrec|acertad|conform|valid[ao]|ok\b", t):
+        return "CORRECTO"
     if "no registrado" in t or "sin registro" in t:
         return "NO REGISTRADO"
     if "registrado" in t or "si tiene registro" in t:
@@ -117,6 +138,8 @@ def analizar(slug):
         "falsos_positivos": [],
         "falsos_negativos": [],
         "confirmados": 0,
+        "incorrectos_sin_direccion": [],
+        "decisiones_no_interpretadas": [],
         "instrucciones_inspector": [],
         "obs_marketplace": [],
     }
@@ -135,19 +158,32 @@ def analizar(slug):
 
             ver = _veredicto(f["decision_final"])
             auto = (f["clasificacion_auto"] or "").strip().upper()
-            if ver in ("REGISTRADO", "NO REGISTRADO") and auto in ("REGISTRADO", "NO REGISTRADO"):
+            caso = {"nombre": f["nombre"], "url": url,
+                    "decision": str(f["decision_final"]).strip(),
+                    "clasifico_como": auto}
+
+            if ver == "CORRECTO":
+                res["confirmados"] += 1
+            elif ver == "INCORRECTO":
+                # La dirección del error se deduce de lo que dijo la rutina:
+                # si acusó y se equivocó, fue un falso positivo; si dio por
+                # registrado y se equivocó, dejó pasar una infracción.
+                if auto == "NO REGISTRADO":
+                    res["falsos_positivos"].append(caso)
+                elif auto == "REGISTRADO":
+                    res["falsos_negativos"].append(caso)
+                else:
+                    res["incorrectos_sin_direccion"].append(caso)
+            elif ver in ("REGISTRADO", "NO REGISTRADO") and auto in ("REGISTRADO", "NO REGISTRADO"):
                 if ver == auto:
                     res["confirmados"] += 1
-                elif auto == "NO REGISTRADO" and ver == "REGISTRADO":
-                    # La rutina lo acusó y el inspector lo desmintió: criterio muy estricto.
-                    res["falsos_positivos"].append(
-                        {"nombre": f["nombre"], "url": url, "decision": str(f["decision_final"]).strip()}
-                    )
+                elif auto == "NO REGISTRADO":
+                    res["falsos_positivos"].append(caso)
                 else:
-                    # La rutina lo dio por registrado y sí era infracción: criterio muy laxo.
-                    res["falsos_negativos"].append(
-                        {"nombre": f["nombre"], "url": url, "decision": str(f["decision_final"]).strip()}
-                    )
+                    res["falsos_negativos"].append(caso)
+            elif ver == "OTRO":
+                # Nunca dejar que una decisión quede fuera del conteo en silencio.
+                res["decisiones_no_interpretadas"].append(caso)
 
             obs = str(f["obs_inspector"]).strip()
             if obs:
@@ -172,6 +208,11 @@ def imprimir(res):
     print(f"  Clasificaciones confirmadas : {res['confirmados']}")
     print(f"  Falsos positivos            : {len(res['falsos_positivos'])}  -> criterio demasiado estricto")
     print(f"  Falsos negativos            : {len(res['falsos_negativos'])}  -> criterio demasiado laxo")
+    if res["decisiones_no_interpretadas"]:
+        print(f"  !! Decisiones NO interpretadas: {len(res['decisiones_no_interpretadas'])}")
+        for d in res["decisiones_no_interpretadas"][:5]:
+            print(f"       «{d['decision']}» en {d['nombre']}")
+        print("     Revisar _veredicto() en scripts/feedback.py: hay vocabulario nuevo.")
     if res["instrucciones_inspector"]:
         print(f"\n  Indicaciones del inspector ({len(res['instrucciones_inspector'])}):")
         for i in res["instrucciones_inspector"]:
