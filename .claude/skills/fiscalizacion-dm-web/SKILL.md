@@ -86,8 +86,31 @@ inspector que revisa esta semana y los reportes previos ya revisados.
 | Jueves | Jeringas hipodérmicas | Kits VIH uso profesional |
 | Viernes | Preservativos masculinos | Preservativos femeninos |
 
-En sábado o domingo el comando devuelve `"habil": false` y sale con código 3: no
-hay fiscalización programada, hay que terminar sin generar nada.
+Cuando el comando devuelve `"habil": false` y sale con código 3, hay que
+**terminar sin generar nada y sin escribirle a nadie**. El campo `motivo` dice
+por qué, y hay tres razones posibles:
+
+- **Fin de semana.**
+- **Semana 4 del mes.** Es la semana de análisis mensual: no se fiscaliza. El
+  martes se emite el consolidado y a las 09:00 se reúnen los tres a decidir qué
+  se denuncia.
+- **Quinto lunes.** Cuatro veces al año hay una semana que sobra después de
+  cerrar el mes; queda fuera del ciclo.
+
+### El mes, no solo la semana
+
+El mes tiene cuatro semanas, contadas **por el lunes de cada semana**. Una semana
+pertenece al mes de su lunes: la del lunes 28-09-2026 es de septiembre aunque el
+jueves ya caiga en octubre.
+
+| Semana | Qué pasa | Quién revisa |
+|---|---|---|
+| 1 | Fiscalización | Emilio Millán |
+| 2 | Fiscalización | Lukas Gallegos |
+| 3 | Fiscalización | María Inés Medina |
+| 4 | Consolidado + reunión, sin búsquedas | Los tres |
+
+El inspector **no** se deduce ni se fija a mano: sale de `rotacion.py`.
 
 ### Paso 0-ter — Leer lo que revisaron los inspectores
 
@@ -191,11 +214,39 @@ ocurría y el reporte quedaba varado en una rama suelta que nadie miraba. Pasó 
 días seguidos, con Desfibriladores y con Jeringas con agujas. Ahora cada corrida
 escribe `historial/<fecha>_slot<N>.json`, un archivo que ninguna otra toca.
 
+### El cierre mensual (semana 4)
+
+Esa semana no se busca. El martes a las 07:30 corre `scripts/consolidado.py`, que
+junta en un solo Excel todo lo que el mes dejó en pie, y a las 09:00 los tres
+deciden qué se procesa como denuncia.
+
+Dos reglas que gobiernan qué entra a ese archivo:
+
+**Un hallazgo entra solo si un inspector lo confirmó.** Que la rutina lo haya
+marcado NO REGISTRADO no basta: hace falta el *Correcto* del inspector en
+«Decisión final». Lo que nadie revisó no aporta casos, y el consolidado lo dice
+en su hoja de cobertura en vez de callarlo. La diferencia entre «no hubo
+hallazgos» y «no alcanzamos a revisarlo» no se puede perder.
+
+**Que el inspector contradiga a la rutina NO es una infracción confirmada.**
+Cuando la rutina dijo REGISTRADO y el inspector marcó *Incorrecto*, la tentación
+es leerlo como una infracción que se escapó. No lo es. Los cinco casos así de
+agosto decían *"el enlace arroja Error - 404"* y *"no es posible confirmar
+mediante imágenes si el producto cuenta con registro vigente"*: son
+verificaciones que no se pudieron completar. Denunciar por un enlace caído sería
+acusar sin sustento. Van a una hoja aparte, sin columna de denuncia.
+
+Lo que el inspector encontró navegando a mano —las URLs que escribe en
+«Observaciones del inspector» de la hoja de marketplace— sí entra, porque suele
+ser lo único que hay de Mercado Libre, que le responde 403 a la rutina. Pero
+entra marcado **POR VERIFICAR**: nadie lo cruzó contra el listado ISP todavía, y
+el archivo tiene que decirlo en vez de mezclarlo con lo confirmado.
+
 ### Paso 5-ter — Enviar el reporte al inspector de la semana
 
 Después de que el push haya quedado confirmado, avisar por Gmail al inspector que
-devuelve `scripts/rotacion.py` en el campo `inspector`. Rota cada tres semanas;
-no fijarlo a mano.
+devuelve `scripts/rotacion.py` en el campo `inspector`. Cambia según la semana
+del mes; no fijarlo a mano.
 
 **El Excel va como ENLACE, nunca como adjunto.** Adjuntar el archivo obliga a
 transcribir su contenido binario en base64 dentro de la llamada a la herramienta,

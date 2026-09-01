@@ -16,22 +16,39 @@ La rutina lee esta carpeta al inicio de cada corrida y usa su contenido para:
 
 ## Cómo cargar un archivo revisado
 
-Sube el `.xlsx` tal cual, sin renombrarlo. El nombre original identifica la
+Sube el `.xlsx`. Lo ideal es no renombrarlo, porque el nombre original ya trae la
 categoría y la fecha:
 
 ```
 Fiscalizacion_Web_DM_agujas-hipodermicas_24-08-2026.xlsx
 ```
 
-Si prefieres marcar que ya fue revisado, agrega el sufijo `_revisado`:
+Pero el lector tolera cómo los renombran en la práctica. Todas estas funcionan:
 
 ```
 Fiscalizacion_Web_DM_agujas-hipodermicas_24-08-2026_revisado.xlsx
+Fiscalizacion_Web_DM_agujas-hipodermicas_31-08-2026_LGG.xlsx
+Fiscalizacion_Web_DM_guantesquirurgicos_26082026 EJMS.xlsx
 ```
 
-Ambas formas funcionan. Lo que **no** debe cambiarse es el tramo
-`Fiscalizacion_Web_DM_<categoria>_`, porque de ahí se deduce a qué categoría
-corresponde el feedback.
+Se puede agregar un sufijo con iniciales, quitar los guiones del nombre de la
+categoría o de la fecha, y usar espacios. Lo que **sí** tiene que sobrevivir en
+el nombre son dos cosas:
+
+- **La categoría**, aunque sea sin guiones (`guantesquirurgicos` vale).
+- **La fecha del reporte**, como `26-08-2026` o `26082026`.
+
+Sin la categoría el archivo no se puede atribuir y queda fuera del feedback y del
+consolidado mensual. Cuando eso pasa, la rutina lo reporta con el nombre exacto
+en vez de ignorarlo: en agosto dos archivos se perdieron en silencio por esto,
+antes de que el lector tolerara los renombres.
+
+Para comprobar que un archivo se está leyendo:
+
+```bash
+python3 -c "import sys; sys.path.insert(0,'scripts'); import rotacion; \
+  print(rotacion.archivos_revisados())"
+```
 
 ## Qué escribir en cada columna
 
@@ -44,8 +61,29 @@ En la hoja "Búsquedas Marketplace" también hay una columna de observaciones de
 inspector, con el mismo efecto. Esa hoja no lleva "Decisión final": son pistas
 para investigación manual, no hallazgos clasificados.
 
+## El consolidado mensual
+
+El martes de la semana 4 llega por correo un Excel distinto,
+`Consolidado_Mensual_DM_MM-AAAA.xlsx`, con los casos del mes que sobrevivieron a
+la revisión. Ese archivo **no** lleva "Decisión final": lleva
+**«¿Se procesa como denuncia?»** (SÍ / NO, con lista desplegable) y
+**«Justificación de la decisión»**, y se completan entre los tres en la reunión
+de las 09:00.
+
+Sus otras hojas:
+
+| Hoja | Qué trae |
+|---|---|
+| Casos del mes | Lo que hay que decidir. |
+| Discrepancias sin resolver | Casos donde el inspector contradijo a la rutina pero el motivo fue un enlace caído o una publicación imposible de verificar. **No** son propuestas de denuncia. |
+| Notas de marketplace | Observaciones sin enlaces, que no se pueden tabular pero explican qué se revisó a mano. |
+| Cobertura del mes | Qué reportes se emitieron, cuáles volvieron revisados y cuántos casos aportó cada uno. |
+
+El consolidado completado se sube a esta misma carpeta.
+
 ## Verificar qué está leyendo la rutina
 
 ```bash
 python3 scripts/feedback.py --categoria agujas-hipodermicas
+python3 scripts/consolidado.py --mes 2026-09
 ```
