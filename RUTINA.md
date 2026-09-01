@@ -1,17 +1,22 @@
 # Prompts de las rutinas de fiscalización web
 
-Se ejecutan **dos rutinas por día hábil**, una por bloque. Son idénticas salvo el
-número de bloque, así que un fallo en la primera no arrastra a la segunda.
+Son **tres rutinas**. Dos fiscalizan (una por bloque, para que un fallo en la
+primera no arrastre a la segunda) y una cierra el mes.
 
 ## Configuración
 
-| Opción | Bloque 1 | Bloque 2 |
-|---|---|---|
-| Nombre | Fiscalización web — bloque 1 | Fiscalización web — bloque 2 |
-| Frecuencia | Lun–Vie 07:30 (hora Chile) | Lun–Vie 07:30 (hora Chile) |
-| Repositorio | `lukasgallegosguty-beep/fiscalizacion-web` | igual |
-| Conectores | Gmail (y nada más) | igual |
-| Rama de salida | ninguna: la fija el prompt (`main`) | igual |
+| Opción | Bloque 1 | Bloque 2 | Consolidado mensual |
+|---|---|---|---|
+| Nombre | Fiscalización web — bloque 1 | Fiscalización web — bloque 2 | Fiscalización web — consolidado mensual |
+| Frecuencia | Lun–Vie 07:30 (hora Chile) | Lun–Vie 07:30 | **Martes** 07:30 |
+| Repositorio | `lukasgallegosguty-beep/fiscalizacion-web` | igual | igual |
+| Conectores | Gmail | Gmail | Gmail **y Google Calendar** |
+| Rama de salida | ninguna: la fija el prompt (`main`) | igual | igual |
+
+Las tres se disparan más veces de las que trabajan, y eso es a propósito: cron no
+sabe expresar "semana 4 del mes". Los bloques cortan en el paso 1 durante la
+semana 4, y el consolidado corta en el paso 1 los martes de las semanas 1 a 3.
+El filtro vive en `scripts/rotacion.py`, no en el cron.
 
 **Sobre el horario y el cambio de hora.** Los cron se evalúan en UTC, y Chile
 cambia de huso dos veces al año: 07:30 local son las **11:30 UTC** en invierno
@@ -24,7 +29,32 @@ de hora, o la rutina se corre una hora.
 usar cualquier herramienta de un conector incluido, escrituras incluidas, sin
 pedir permiso.
 
-## Calendario
+## Calendario del mes
+
+El mes se divide en cuatro semanas, contadas **por el lunes de cada semana**:
+
+| Semana | Qué pasa | Quién revisa |
+|---|---|---|
+| 1 | Fiscalización, 10 categorías | Emilio Millán · emillan@ispch.cl |
+| 2 | Fiscalización, 10 categorías | Lukas Gallegos · lgallegos@ispch.cl |
+| 3 | Fiscalización, 10 categorías | María Inés Medina · mmedina@ispch.cl |
+| 4 | **Sin búsquedas.** Martes 07:30 consolidado, 09:00 reunión | Los tres |
+
+Una semana pertenece al mes **de su lunes**. La semana del lunes 28-09-2026 es de
+septiembre aunque el jueves ya caiga en octubre. Sin esa regla la misma semana se
+contaría en dos meses y el inspector cambiaría a media semana.
+
+Por eso el martes de la semana 4 **no es** siempre el "cuarto martes del mes":
+en septiembre de 2026 la semana 4 empieza el lunes 28 y la reunión cae el 29,
+mientras que el cuarto martes es el 22 — que bajo este esquema todavía es semana
+3 y María Inés sigue fiscalizando. Divergen en 5 de cada 36 meses.
+
+Cuatro veces al año hay un quinto lunes. Esa semana queda **fuera del ciclo**: el
+mes ya se cerró en la semana 4 y una cuarta semana de búsqueda no tendría
+inspector asignado. Para correrla igual, agrega el `4` a `SEMANAS_BUSQUEDA` en
+`scripts/rotacion.py` y define quién revisa.
+
+## Calendario de la semana
 
 | Día | Bloque 1 | Bloque 2 |
 |---|---|---|
@@ -37,16 +67,35 @@ pedir permiso.
 Es un calendario fijo, no una rotación: si una corrida falla, el mismo día de la
 semana siguiente vuelve a tocar esa categoría. No hay estado que se descuadre.
 
-## Inspector de la semana
+## La semana 4: cierre del mes
 
-Rota cada tres semanas desde el lunes **24-08-2026** y se repite indefinidamente.
-Lo resuelve `scripts/rotacion.py`; no lo escribas en el prompt.
+No se fiscaliza. El martes:
 
-| Semana del ciclo | Inspector | Correo |
-|---|---|---|
-| 1 | Emilio Millán | emillan@ispch.cl |
-| 2 | Lukas Gallegos | lgallegos@ispch.cl |
-| 3 | María Inés Medina | mmedina@ispch.cl |
+- **07:30** — `scripts/consolidado.py` arma un Excel con todos los casos del mes
+  que sobrevivieron a la revisión, y se envía a los tres por correo.
+- **09:00** — reunión de una hora (evento recurrente ya creado en Google
+  Calendar, con Meet) para decidir caso por caso qué se procesa como denuncia.
+
+Al consolidado entran dos cosas:
+
+1. Hallazgos que la rutina marcó **NO REGISTRADO** y el inspector confirmó con un
+   *Correcto* en «Decisión final».
+2. URLs que el inspector escribió a mano en «Observaciones del inspector» de la
+   hoja de marketplace. Son productos que él encontró navegando y que la rutina
+   no pudo ver, porque Mercado Libre le devuelve 403. Entran marcados **POR
+   VERIFICAR**: nadie los cruzó todavía contra el listado ISP.
+
+No entra lo que la rutina dio por REGISTRADO y el inspector marcó *Incorrecto*.
+Es tentador leerlo como una infracción que la rutina dejó pasar, pero al revisar
+los cinco casos de agosto el inspector estaba diciendo otra cosa: *"el enlace
+arroja Error - 404"*, *"no es posible confirmar mediante imágenes si el producto
+cuenta con registro vigente"*. Son verificaciones que no se pudieron completar,
+no productos ilegales. Van a la hoja «Discrepancias sin resolver», sin columna de
+denuncia.
+
+Tampoco entra lo que sigue sin revisar. Un reporte que el inspector no devolvió
+no aporta casos, y eso se dice en la hoja «Cobertura del mes» y en el correo:
+es la diferencia entre *no hubo hallazgos* y *no alcanzamos a revisarlo*.
 
 ## Prompt — bloque 1
 
@@ -64,7 +113,10 @@ perdería igual.
 
 PASO 1 — QUÉ TOCA HOY
 Ejecuta: python3 scripts/rotacion.py --slot 1 --json
-Si devuelve "habil": false (fin de semana), termina sin generar nada.
+Si devuelve "habil": false, TERMINA sin generar nada y sin escribirle a nadie.
+Puede ser fin de semana, la semana 4 del mes (reservada al análisis mensual: esa
+semana NO se fiscaliza) o un quinto lunes fuera del ciclo. El campo "motivo" dice
+cuál es; repítelo en la notificación y no hagas nada más.
 Usa la categoría, el Excel ISP, la hoja, la ruta de salida y el inspector que
 devuelve. No deduzcas la categoría por tu cuenta.
 
@@ -140,7 +192,8 @@ silencio dando por hecho que se guardó.
 
 PASO 6 — AVISAR AL INSPECTOR
 Con el push ya confirmado, escribe por Gmail al inspector que devolvió el paso 1
-(campo inspector.email). No fijes el destinatario a mano: rota cada 3 semanas.
+(campo inspector.email). No fijes el destinatario a mano: cambia según la semana
+del mes.
 
 NO ADJUNTES EL ARCHIVO. Manda un ENLACE de descarga.
 Adjuntarlo obliga a transcribir el binario en base64 y basta un carácter distinto
@@ -169,4 +222,91 @@ PASO 7 — NOTIFICACIÓN
 Informa: categoría y bloque; ofertas revisadas en total y cuántas se incluyeron
 tras el tope de 10; desglose por clasificación; los 3 casos más relevantes; descartados por jurisdicción; marketplaces
 bloqueados; confirmación del push; y a quién se envió el correo.
+```
+
+## Prompt — consolidado mensual
+
+Rutina aparte, **martes 07:30**, con los conectores **Gmail y Google Calendar**.
+
+```
+Ejecuta el cierre mensual de la fiscalización web de DM.
+
+PASO 0 — PREFLIGHT (ANTES DE NADA)
+Ejecuta: bash scripts/preflight.sh main
+Si sale distinto de 0, ABORTA y notifica el error textual que imprimió.
+
+PASO 1 — ¿TOCA HOY?
+Ejecuta: python3 scripts/rotacion.py --consolidacion --json
+Esta rutina se dispara TODOS los martes porque cron no sabe expresar "semana 4
+del mes". El filtro real es este paso: si "es_hoy" es false, TERMINA de inmediato
+sin generar nada y sin escribirle a nadie. No es un error: es lo que pasa la
+mayoría de los martes. Dilo en la notificación en una línea y cierra.
+
+PASO 2 — CONSOLIDAR
+Ejecuta: python3 scripts/consolidado.py --json
+Genera el Excel del mes en resultados/. NO lo edites a mano y NO completes las
+columnas de decisión: las llenan los tres en la reunión.
+Si "archivos_no_atribuidos" trae algo, hay Excel en revision/ cuyo nombre no
+permite deducir la categoría. Nómbralos textualmente en el correo: son casos que
+quedaron fuera del consolidado y alguien tiene que renombrarlos.
+
+PASO 3 — PERSISTIR EN GIT (OBLIGATORIO)
+  1. git add resultados/
+  2. git commit -m "consolidado mensual: <MM-YYYY>"
+  3. for intento in 1 2 3; do
+       git push origin main && break
+       git pull --rebase origin main
+     done
+  4. Verifica que git status no muestre commits sin subir.
+Si el push falla, dilo con el error textual y NO sigas al paso 4: sin push no hay
+enlace que enviar y el correo llegaría roto.
+
+PASO 4 — ENVIAR A LOS TRES
+Un solo correo por Gmail, con los tres destinatarios que devolvió el paso 1
+(campo "destinatarios") en el campo "para".
+
+NO ADJUNTES EL ARCHIVO. Manda el ENLACE de descarga:
+  https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<archivo>.xlsx
+El repositorio es público: no necesitan cuenta ni permisos.
+
+  Asunto: Consolidado mensual fiscalización web DM — <mes> <año>
+  Cuerpo:
+    - El enlace de descarga bien visible.
+    - Cuántos casos trae y de dónde salen: hallazgos NO REGISTRADO confirmados
+      por el inspector, y detecciones manuales de marketplace. Aclara que estas
+      últimas van marcadas POR VERIFICAR porque no pasaron por el cruce contra
+      el listado ISP y hay que comprobarlas antes de resolver.
+    - Desglose por categoría.
+    - Qué reportes del mes quedaron SIN REVISAR y por lo tanto no aportaron
+      casos (campo "pendientes_de_revision"). Esto va sí o sí: es la diferencia
+      entre "no hubo hallazgos" y "no alcanzamos a revisarlo".
+    - Si hay discrepancias sin resolver, di cuántas y que están en una hoja
+      aparte, sin proponerse como denuncia.
+    - Cierra recordando que en la reunión de las 09:00 hay que completar
+      "¿Se procesa como denuncia?" y "Justificación de la decisión", y que el
+      archivo completado se sube a la carpeta revision/.
+
+PASO 5 — REUNIÓN: CONFIRMAR HOY Y EXTENDER EL HORIZONTE
+Las reuniones están creadas en Google Calendar como eventos INDIVIDUALES, uno por
+mes, con título "Fiscalización web DM — revisión mensual de casos (<mes> <año>)",
+09:00-10:00 y los tres invitados.
+No son un evento recurrente a propósito: la recurrencia solo se puede expresar
+con RDATE (fechas explícitas), porque el martes de la semana 4 no coincide con el
+"cuarto martes del mes" en 5 de cada 36 meses. Y Outlook no soporta RDATE: la
+invitación llega y no se puede agregar. Un evento por mes es lo único que abre
+bien en los dos calendarios.
+
+  a) Busca el evento de HOY. Si existe, confirma que los tres siguen invitados.
+     Si no existe, créalo hoy de 09:00 a 10:00 e invita a los tres.
+  b) Extiende el horizonte: mira 12 meses hacia adelante y, si al último mes le
+     falta su evento, créalo. La fecha exacta la da:
+       python3 scripts/rotacion.py --consolidacion --fecha <YYYY-MM-DD> --json
+     (campo "fecha"). NO la calcules como "cuarto martes": no es lo mismo.
+  c) BUSCA ANTES DE CREAR, siempre. Duplicar la reunión es peor que no tenerla:
+     nadie sabe a cuál de las dos ir. Si ya existe, no toques nada.
+
+PASO 6 — NOTIFICACIÓN
+Informa: periodo consolidado; casos totales y desglose por origen; las categorías
+con más casos; qué reportes quedaron sin revisar; confirmación del push; a
+quiénes se envió el correo; y si la reunión de hoy estaba agendada.
 ```

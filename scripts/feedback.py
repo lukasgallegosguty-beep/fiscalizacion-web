@@ -29,6 +29,10 @@ import sys
 from openpyxl import load_workbook
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(RAIZ, "scripts"))
+
+import rotacion  # noqa: E402
+
 DIR_REVISION = os.path.join(RAIZ, "revision")
 DIR_RESULTADOS = os.path.join(RAIZ, "resultados")
 
@@ -43,7 +47,7 @@ def _norm(v):
     )
 
 
-def _veredicto(texto):
+def veredicto(texto):
     """Interpreta la 'Decisión final' que escribió el inspector.
 
     Los inspectores responden a la pregunta «¿acertó la rutina?», no repiten la
@@ -73,6 +77,10 @@ def _veredicto(texto):
     if "registrado" in t or "si tiene registro" in t:
         return "REGISTRADO"
     return "OTRO"
+
+
+# Nombre histórico: lo usan consolidado.py y el resto del módulo.
+_veredicto = veredicto
 
 
 def _indice(ws):
@@ -128,8 +136,10 @@ def _leer_archivo(ruta):
 
 def analizar(slug):
     """Consolida el feedback de todos los archivos revisados de una categoría."""
-    patron = f"Fiscalizacion_Web_DM_{slug}_*.xlsx"
-    archivos = sorted(glob.glob(os.path.join(DIR_REVISION, patron)), key=os.path.getmtime)
+    # Atribución tolerante, no glob por nombre exacto: los inspectores
+    # renombran los archivos y dos de los doce de agosto quedaban fuera.
+    atribuidos, no_atribuidos = rotacion.archivos_revisados(slug)
+    archivos = [i["ruta"] for i in atribuidos]
 
     res = {
         "categoria": slug,
@@ -142,6 +152,7 @@ def analizar(slug):
         "decisiones_no_interpretadas": [],
         "instrucciones_inspector": [],
         "obs_marketplace": [],
+        "archivos_no_atribuidos": no_atribuidos,
     }
 
     vistas = set()
@@ -200,6 +211,11 @@ def analizar(slug):
 
 
 def imprimir(res):
+    if res.get("archivos_no_atribuidos"):
+        print(f"  !! {len(res['archivos_no_atribuidos'])} archivo(s) en revision/ sin categoría "
+              "reconocible — su feedback NO se está leyendo:")
+        for a in res["archivos_no_atribuidos"]:
+            print(f"       {a}")
     if not res["hay_feedback"]:
         print(f"[{res['categoria']}] sin archivos revisados en revision/ — primera corrida de la categoría")
         return

@@ -13,7 +13,17 @@ vuelve a tocar lo mismo que este lunes.
     Jueves     1) Jeringas hipodérmicas        2) Kits VIH uso profesional
     Viernes    1) Preservativos masculinos     2) Preservativos femeninos
 
-El inspector que revisa la semana rota cada 3 semanas desde el 24-08-2026.
+El mes se organiza en cuatro semanas, contadas por el lunes de cada semana:
+
+    Semana 1   búsqueda   revisa Emilio Millán
+    Semana 2   búsqueda   revisa Lukas Gallegos
+    Semana 3   búsqueda   revisa María Inés Medina
+    Semana 4   SIN BÚSQUEDA. El martes se emite el consolidado mensual a los
+               tres y se reúnen a las 09:00 a resolver qué se denuncia.
+
+Una semana pertenece al mes de su LUNES. La semana del lunes 28-09 sigue siendo
+de septiembre aunque el jueves ya caiga en octubre: sin esa regla una misma
+semana se contaría en dos meses y el inspector cambiaría a media semana.
 
 Uso:
     python3 scripts/rotacion.py --slot 1              # bloque 1 de hoy
@@ -30,7 +40,7 @@ import json
 import os
 import re
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR_ISP = os.path.join(RAIZ, "registros-isp")
@@ -129,14 +139,34 @@ CALENDARIO = {
 
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
-# Inspector que revisa los hallazgos de la semana. Rota cada 3 semanas y se
-# repite indefinidamente a partir del lunes de inicio.
-INICIO_CICLO = date(2026, 8, 24)
+# Inspector que revisa los hallazgos, según el número de semana DEL MES. No es
+# una rotación acumulativa: cada mes vuelve a empezar en Emilio, así que un mes
+# con una corrida caída no descoloca la asignación del mes siguiente.
 INSPECTORES = [
     {"nombre": "Emilio Millán", "email": "emillan@ispch.cl"},
     {"nombre": "Lukas Gallegos", "email": "lgallegos@ispch.cl"},
     {"nombre": "María Inés Medina", "email": "mmedina@ispch.cl"},
 ]
+INSPECTOR_POR_SEMANA = {1: INSPECTORES[0], 2: INSPECTORES[1], 3: INSPECTORES[2]}
+
+# Quien organiza la reunión mensual y firma la invitación de calendario.
+ORGANIZADOR = {"nombre": "Lukas Gallegos", "email": "lgallegos@ispch.cl"}
+
+# Semanas del mes en que se fiscaliza, y semana reservada al análisis mensual.
+SEMANAS_BUSQUEDA = (1, 2, 3)
+SEMANA_CONSOLIDACION = 4
+DIA_CONSOLIDACION = 1        # martes (0 = lunes)
+HORA_CONSOLIDACION = "07:30"  # envío del consolidado
+HORA_REUNION = (9, 0)         # inicio de la reunión mensual
+DURACION_REUNION_MIN = 60
+# La reunión va en Google Calendar como un evento INDIVIDUAL por mes, no como
+# uno recurrente: la única recurrencia que expresa estas fechas es RDATE (fechas
+# explícitas), porque el martes de la semana 4 no es el "cuarto martes del mes"
+# en 5 de cada 36 meses. Outlook no soporta RDATE y rechaza la invitación
+# entera, así que un evento por mes es lo único que abre en ambos calendarios.
+
+MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+         "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
 # Objetivo de esfuerzo de búsqueda, no una cuota a rellenar. Ver SKILL.md:
 # si la realidad no da para tanto, se informa el número real; nunca se inventan
@@ -150,14 +180,68 @@ def lunes_de(fecha):
     return fecha - timedelta(days=fecha.weekday())
 
 
+def semana_de(fecha):
+    """Ubica la fecha en el calendario mensual.
+
+    La semana pertenece al mes de su LUNES. Es lo que hace que la asignación no
+    cambie a media semana cuando el mes parte un miércoles, y que cada semana
+    tenga un único número de mes sin ambigüedad.
+    """
+    lunes = lunes_de(fecha)
+    n = (lunes.day - 1) // 7 + 1
+    return {
+        "n": n,
+        "lunes": lunes.isoformat(),
+        "anio": lunes.year,
+        "mes": lunes.month,
+        "mes_nombre": MESES[lunes.month - 1],
+        "periodo": f"{lunes.year}-{lunes.month:02d}",
+    }
+
+
+def modo_de(fecha):
+    """Qué se hace esa semana: buscar, consolidar o nada."""
+    n = semana_de(fecha)["n"]
+    if n in SEMANAS_BUSQUEDA:
+        return "busqueda"
+    if n == SEMANA_CONSOLIDACION:
+        return "consolidacion"
+    # Cuatro meses al año tienen un quinto lunes. Esa semana queda fuera del
+    # ciclo: el mes ya se cerró con el consolidado de la semana 4 y abrir una
+    # cuarta semana de búsqueda no tendría inspector asignado.
+    return "sin-programacion"
+
+
 def inspector_de(fecha):
-    """Inspector a cargo de la semana que contiene `fecha`."""
-    semanas = (lunes_de(fecha) - INICIO_CICLO).days // 7
-    insp = dict(INSPECTORES[semanas % len(INSPECTORES)])
-    insp["semana_ciclo"] = (semanas % len(INSPECTORES)) + 1
-    insp["semana_absoluta"] = semanas + 1
-    insp["lunes_semana"] = lunes_de(fecha).isoformat()
+    """Inspector a cargo de la semana, o None si esa semana no se fiscaliza."""
+    sem = semana_de(fecha)
+    base = INSPECTOR_POR_SEMANA.get(sem["n"])
+    if base is None:
+        return None
+    insp = dict(base)
+    insp["semana_mes"] = sem["n"]
+    insp["lunes_semana"] = sem["lunes"]
+    insp["periodo"] = sem["periodo"]
     return insp
+
+
+def lunes_semana4(anio, mes):
+    """El lunes de la semana 4 de ese mes.
+
+    Siempre cae entre el 22 y el 28: son siete días consecutivos, así que
+    contienen exactamente un lunes, y todo mes llega al 28. La función no puede
+    devolver None.
+    """
+    for d in range(22, 29):
+        f = date(anio, mes, d)
+        if f.weekday() == 0:
+            return f
+    raise AssertionError(f"{anio}-{mes:02d} sin lunes entre el 22 y el 28")
+
+
+def martes_consolidacion(anio, mes):
+    """El martes de la semana 4: día del consolidado y de la reunión."""
+    return lunes_semana4(anio, mes) + timedelta(days=DIA_CONSOLIDACION)
 
 
 def categorias_del_dia(fecha):
@@ -287,6 +371,79 @@ def normalizar_slug(valor):
     return candidatos[0][1]
 
 
+RE_FECHA_ARCHIVO = re.compile(r"(\d{2})[-_. ]?(\d{2})[-_. ]?(\d{4})")
+
+
+def _compacto(texto):
+    """Deja solo letras y dígitos, sin tildes: 'Guantes-Quirúrgicos' -> 'guantesquirurgicos'."""
+    return re.sub(r"[^a-z0-9]", "", _sin_tildes(texto))
+
+
+def atribuir_archivo(ruta):
+    """Deduce (slug, fecha) del nombre de un Excel devuelto por un inspector.
+
+    Los inspectores renombran los archivos a mano antes de subirlos. En agosto
+    volvieron como "..._31-08-2026_LGG.xlsx", "...guantesquirurgicos_26082026
+    EJMS.xlsx" y "...jeringasconagujas_26082026 EMS.xlsx": sin guiones en el
+    slug, sin guiones en la fecha y con las iniciales pegadas al final. El glob
+    por nombre exacto perdía dos de los doce archivos SIN AVISAR, que es la peor
+    forma de perderlos. Aquí se compara todo compactado a letras y dígitos.
+
+    Devuelve None si no se puede atribuir; quien llama debe reportarlo, nunca
+    descartarlo en silencio.
+    """
+    nombre = os.path.basename(ruta)
+    base = os.path.splitext(nombre)[0]
+    plano = _compacto(base)
+
+    # La categoría más específica que aparezca en el nombre. Un empate entre dos
+    # categorías del mismo largo se considera ambiguo y no se adivina.
+    candidatos = sorted(
+        ((len(_compacto(c["slug"])), c["slug"]) for c in CATEGORIAS
+         if _compacto(c["slug"]) in plano),
+        reverse=True,
+    )
+    if not candidatos:
+        return None
+    if len(candidatos) > 1 and candidatos[0][0] == candidatos[1][0]:
+        return None
+    slug = candidatos[0][1]
+
+    fecha = None
+    m = RE_FECHA_ARCHIVO.search(base)
+    if m:
+        d, mes, anio = (int(x) for x in m.groups())
+        try:
+            fecha = date(anio, mes, d)
+        except ValueError:
+            fecha = None
+    return {"slug": slug, "fecha": fecha, "archivo": nombre, "ruta": ruta}
+
+
+def archivos_revisados(slug=None, anio=None, mes=None):
+    """Excels de revision/ atribuidos por contenido del nombre, no por glob.
+
+    Devuelve (atribuidos, no_atribuidos). El segundo nunca se descarta: es lo
+    que hay que mostrarle a quien opera la rutina para que corrija el nombre.
+    """
+    ok, fallidos = [], []
+    for ruta in sorted(glob.glob(os.path.join(DIR_REVISION, "*.xlsx"))):
+        if os.path.basename(ruta).startswith("~$"):
+            continue  # archivo temporal de Excel
+        info = atribuir_archivo(ruta)
+        if info is None:
+            fallidos.append(os.path.basename(ruta))
+            continue
+        if slug and info["slug"] != slug:
+            continue
+        if anio and mes:
+            if info["fecha"] is None or (info["fecha"].year, info["fecha"].month) != (anio, mes):
+                continue
+        ok.append(info)
+    ok.sort(key=lambda i: (i["fecha"] or date.min, i["archivo"]))
+    return ok, fallidos
+
+
 def resolver_excel(cat):
     """Devuelve el Excel ISP vigente de la categoría (el más reciente si hay varios)."""
     coincidencias = sorted(glob.glob(os.path.join(DIR_ISP, cat["patron"])))
@@ -304,7 +461,8 @@ def reportes_previos(cat):
     su feedback vale más que el reporte crudo que generó la rutina.
     """
     patron = f"Fiscalizacion_Web_DM_{cat['slug']}_*.xlsx"
-    revisados = sorted(glob.glob(os.path.join(DIR_REVISION, patron)), key=os.path.getmtime, reverse=True)
+    # Los devueltos se buscan por atribución, no por glob: llegan renombrados.
+    revisados = [i["ruta"] for i in reversed(archivos_revisados(cat["slug"])[0])]
     crudos = sorted(glob.glob(os.path.join(DIR_RESULTADOS, patron)), key=os.path.getmtime, reverse=True)
     return {"revisados": revisados, "crudos": crudos}
 
@@ -320,17 +478,41 @@ def reporte_previo(cat):
 def construir_plan(fecha=None, slot=1):
     """Plan de trabajo para un bloque de un día concreto."""
     fecha = fecha or date.today()
-    cat = categoria_de(fecha, slot)
+    sem = semana_de(fecha)
+    modo = modo_de(fecha)
+    base = {
+        "dia": DIAS[fecha.weekday()],
+        "fecha": fecha.strftime("%d-%m-%Y"),
+        "fecha_iso": fecha.isoformat(),
+        "slot": slot,
+        "semana_mes": sem["n"],
+        "periodo": sem["periodo"],
+        "modo_semana": modo,
+    }
 
+    # La semana 4 y el quinto lunes no se fiscalizan. Se responde habil: false
+    # igual que un fin de semana, para que la rutina de búsqueda corte en el
+    # paso 1 sin gastar la corrida.
+    if modo != "busqueda":
+        if modo == "consolidacion":
+            martes = martes_consolidacion(sem["anio"], sem["mes"])
+            base["motivo"] = (
+                f"semana {sem['n']} de {sem['mes_nombre']}: semana de análisis mensual, "
+                f"no se fiscaliza. El consolidado se emite el martes "
+                f"{martes.strftime('%d-%m-%Y')} a las {HORA_CONSOLIDACION}."
+            )
+            base["fecha_consolidacion"] = martes.isoformat()
+        else:
+            base["motivo"] = (
+                f"semana {sem['n']} de {sem['mes_nombre']}: fuera del ciclo mensual. "
+                f"El mes ya se cerró en la semana {SEMANA_CONSOLIDACION}; "
+                "no hay fiscalización programada."
+            )
+        return dict(habil=False, **base)
+
+    cat = categoria_de(fecha, slot)
     if cat is None:
-        return {
-            "habil": False,
-            "dia": DIAS[fecha.weekday()],
-            "fecha": fecha.strftime("%d-%m-%Y"),
-            "fecha_iso": fecha.isoformat(),
-            "slot": slot,
-            "motivo": "fin de semana: no hay fiscalización programada",
-        }
+        return dict(habil=False, motivo="fin de semana: no hay fiscalización programada", **base)
 
     excel = resolver_excel(cat)
     previos = reportes_previos(cat)
@@ -338,6 +520,9 @@ def construir_plan(fecha=None, slot=1):
         "habil": True,
         "dia": DIAS[fecha.weekday()],
         "slot": slot,
+        "semana_mes": sem["n"],
+        "periodo": sem["periodo"],
+        "modo_semana": modo,
         "slug": cat["slug"],
         "categoria": cat["nombre"],
         "excel_isp": excel,
@@ -381,7 +566,92 @@ def plan_semana(fecha=None):
                     "categoria": cat["nombre"],
                 }
             )
-    return {"lunes": lunes.isoformat(), "inspector": inspector_de(fecha), "bloques": filas}
+    sem = semana_de(fecha)
+    return {
+        "lunes": lunes.isoformat(),
+        "semana_mes": sem["n"],
+        "periodo": sem["periodo"],
+        "modo_semana": modo_de(fecha),
+        "inspector": inspector_de(fecha),
+        "bloques": filas if modo_de(fecha) == "busqueda" else [],
+    }
+
+
+def bloques_del_mes(anio, mes):
+    """Las 30 asignaciones de búsqueda del mes: 10 por cada semana 1, 2 y 3.
+
+    Los lunes se derivan restando semanas al lunes de la semana 4, no contando
+    hacia adelante desde el día 1. Así el mes que empieza a mitad de semana no
+    puede desalinear la cuenta respecto de `semana_de()`.
+    """
+    l4 = lunes_semana4(anio, mes)
+    filas = []
+    for n in SEMANAS_BUSQUEDA:
+        lunes = l4 - timedelta(weeks=SEMANA_CONSOLIDACION - n)
+        insp = INSPECTOR_POR_SEMANA[n]
+        for i in range(5):
+            d = lunes + timedelta(days=i)
+            for slot in (1, 2):
+                cat = categoria_de(d, slot)
+                filas.append({
+                    "fecha": d.isoformat(),
+                    "fecha_dmy": d.strftime("%d-%m-%Y"),
+                    "dia": DIAS[d.weekday()],
+                    "semana_mes": n,
+                    "slot": slot,
+                    "slug": cat["slug"],
+                    "categoria": cat["nombre"],
+                    "inspector": insp["email"],
+                    "archivo": f"Fiscalizacion_Web_DM_{cat['slug']}_{d.strftime('%d-%m-%Y')}.xlsx",
+                })
+    return filas
+
+
+def plan_consolidacion(fecha=None):
+    """Plan del cierre mensual: qué mes se consolida, cuándo y con qué insumos.
+
+    `es_hoy` es lo que debe mirar la rutina: sale True solo el martes de la
+    semana 4. La rutina se dispara todos los martes porque cron no sabe expresar
+    "semana 4 del mes", así que el filtro real vive aquí.
+    """
+    fecha = fecha or date.today()
+    sem = semana_de(fecha)
+    martes = martes_consolidacion(sem["anio"], sem["mes"])
+    reunion = datetime.combine(martes, time(*HORA_REUNION))
+    esperados = bloques_del_mes(sem["anio"], sem["mes"])
+
+    for b in esperados:
+        b["reporte"] = os.path.exists(os.path.join(DIR_RESULTADOS, b["archivo"]))
+        b["revisado"] = os.path.exists(os.path.join(DIR_REVISION, b["archivo"]))
+
+    return {
+        "periodo": sem["periodo"],
+        "mes_nombre": sem["mes_nombre"],
+        "anio": sem["anio"],
+        "mes": sem["mes"],
+        "semana_mes": sem["n"],
+        "es_semana_consolidacion": sem["n"] == SEMANA_CONSOLIDACION,
+        "es_hoy": fecha == martes,
+        "fecha": martes.isoformat(),
+        "fecha_dmy": martes.strftime("%d-%m-%Y"),
+        "hora_envio": HORA_CONSOLIDACION,
+        "reunion_inicio": reunion.isoformat(),
+        "reunion_fin": (reunion + timedelta(minutes=DURACION_REUNION_MIN)).isoformat(),
+        "duracion_min": DURACION_REUNION_MIN,
+        "destinatarios": [i["email"] for i in INSPECTORES],
+        "organizador": ORGANIZADOR,
+        "archivo_salida": os.path.join(
+            DIR_RESULTADOS, f"Consolidado_Mensual_DM_{sem['mes']:02d}-{sem['anio']}.xlsx"
+        ),
+        "archivo_ics": os.path.join(
+            DIR_RESULTADOS, f"Reunion_Mensual_DM_{sem['mes']:02d}-{sem['anio']}.ics"
+        ),
+        "bloques_esperados": esperados,
+        "reportes_emitidos": sum(1 for b in esperados if b["reporte"]),
+        "reportes_revisados": sum(1 for b in esperados if b["revisado"]),
+        "sin_revisar": [b["archivo"] for b in esperados if b["reporte"] and not b["revisado"]],
+        "sin_emitir": [b["archivo"] for b in esperados if not b["reporte"]],
+    }
 
 
 def avanzar(fecha=None, slot=1, hallazgos=None, notas="", detectados=None):
@@ -453,6 +723,8 @@ def main():
     ap.add_argument("--avanzar", action="store_true", help="registrar como procesado")
     ap.add_argument("--semana", action="store_true", help="plan de la semana")
     ap.add_argument("--estado", action="store_true", help="cobertura histórica")
+    ap.add_argument("--consolidacion", action="store_true",
+                    help="plan del cierre mensual (semana 4)")
     ap.add_argument("--hallazgos", type=int, default=None, help="n.º de hallazgos incluidos")
     ap.add_argument("--detectados", type=int, default=None, help="n.º de ofertas detectadas en total")
     ap.add_argument("--notas", default="", help="nota libre para el historial")
@@ -466,10 +738,37 @@ def main():
             print(json.dumps(sem, ensure_ascii=False, indent=2))
         else:
             insp = sem["inspector"]
-            print(f"Semana del {sem['lunes']}  ·  revisa: {insp['nombre']} <{insp['email']}>")
+            quien = f"revisa: {insp['nombre']} <{insp['email']}>" if insp else "sin inspector asignado"
+            print(f"Semana {sem['semana_mes']} de {sem['periodo']} (lunes {sem['lunes']})  ·  {quien}")
+            if sem["modo_semana"] != "busqueda":
+                print(f"  {construir_plan(fecha, 1)['motivo']}")
             for b in sem["bloques"]:
                 print(f"  {b['dia']:<10} bloque {b['slot']}  {b['categoria']}")
         return 0
+
+    if args.consolidacion:
+        con = plan_consolidacion(fecha)
+        if args.json:
+            print(json.dumps(con, ensure_ascii=False, indent=2))
+            return 0 if con["es_hoy"] else 3
+        print(f"Periodo        : {con['mes_nombre']} {con['anio']}  ({con['periodo']})")
+        print(f"Consolidado    : martes {con['fecha_dmy']} a las {con['hora_envio']}")
+        print(f"Reunión        : {con['reunion_inicio'][11:16]}-{con['reunion_fin'][11:16]} "
+              f"({con['duracion_min']} min)")
+        print(f"Destinatarios  : {', '.join(con['destinatarios'])}")
+        print(f"Hoy es el día  : {'sí' if con['es_hoy'] else 'no'}")
+        print(f"Reportes del mes: {con['reportes_emitidos']}/{len(con['bloques_esperados'])} emitidos  ·  "
+              f"{con['reportes_revisados']} revisados por el inspector")
+        if con["sin_revisar"]:
+            print(f"  Sin revisar ({len(con['sin_revisar'])}): no aportan casos al consolidado")
+            for a in con["sin_revisar"][:5]:
+                print(f"    - {a}")
+        if con["sin_emitir"]:
+            print(f"  Sin emitir ({len(con['sin_emitir'])}): la corrida no llegó a generarlos")
+            for a in con["sin_emitir"][:5]:
+                print(f"    - {a}")
+        print(f"Salida         : {con['archivo_salida']}")
+        return 0 if con["es_hoy"] else 3
 
     if args.estado:
         filas = cobertura()
@@ -494,7 +793,8 @@ def main():
         return 3
 
     insp = plan["inspector"]
-    print(f"Día            : {plan['dia']} {plan['fecha']}  ·  bloque {plan['slot']}")
+    print(f"Día            : {plan['dia']} {plan['fecha']}  ·  bloque {plan['slot']}  "
+          f"·  semana {plan['semana_mes']} de {plan['periodo']}")
     print(f"Categoría      : {plan['categoria']}  ({plan['slug']})")
     print(f"Excel ISP      : {plan['excel_isp'] or '*** NO ENCONTRADO ***'}")
     print(f"Hoja           : {plan['hoja'] or '(primera hoja)'}")
@@ -503,7 +803,8 @@ def main():
     print(f"Revisados      : {len(plan['reportes_revisados'])} en revision/  ·  "
           f"{len(plan['reportes_crudos'])} en resultados/")
     print(f"Reporte previo : {os.path.basename(plan['reporte_previo']) if plan['reporte_previo'] else '(ninguno)'}")
-    print(f"Inspector      : {insp['nombre']} <{insp['email']}>  (semana {insp['semana_ciclo']}/3)")
+    print(f"Inspector      : {insp['nombre']} <{insp['email']}>  "
+          f"(semana {insp['semana_mes']} del mes)")
     print(f"Salida         : {plan['archivo_salida']}")
     if args.avanzar:
         print(f"\nCorrida registrada en {os.path.relpath(plan.get('registro',''), RAIZ)}")
