@@ -94,6 +94,25 @@ COLUMNAS_ANEXO = [
 
 BORDE = Border(*[Side(style="thin", color="C8CDD4")] * 4)
 
+# Alcance de la regulación de guantes: la INTERSECCIÓN de uso médico
+# (examinación o quirúrgico) y material látex/caucho. Todo lo demás queda fuera,
+# tenga o no registro. Ver SKILL.md. Los dos lados fallaron en producción: 13
+# acusaciones a nitrilo y vinilo el 25-08-2026, y dos a guantes negros de látex
+# de uso no médico el 01-09-2026.
+MATERIALES_FUERA_ALCANCE = (
+    "nitrilo", "nitrile", "vinilo", "vinyl", "neopreno", "neoprene",
+    "polietileno", "polyethylene", "pvc",
+)
+USO_MEDICO = ("examin", "quirurg", "cirug", "surgical", "exam ", "medical exam")
+
+
+def _plano(texto):
+    return (
+        str(texto or "").lower()
+        .replace("á", "a").replace("é", "e").replace("í", "i")
+        .replace("ó", "o").replace("ú", "u").replace("ñ", "n")
+    )
+
 
 def _encabezados(ws, columnas):
     fuente = Font(bold=True, color="FFFFFF", size=11)
@@ -209,6 +228,47 @@ def validar(datos):
     rep = {u for u in urls if urls.count(u) > 1}
     if rep:
         avisos.append(f"{len(rep)} URL(s) repetidas en el reporte: {', '.join(list(rep)[:3])}")
+
+    # Guantes: la regulación cubre solo examinación y quirúrgicos DE LÁTEX. Un
+    # guante de otro material, o de látex pero de uso no médico, no es una
+    # infracción aunque no tenga registro. Se avisa en vez de excluir: la
+    # decisión es del fiscalizador, pero no puede pasar inadvertida.
+    if "guante" in _plano(categoria):
+        acusados = [
+            h for h in hallazgos
+            if str(h.get("clasificacion", "")).strip().upper() == "NO REGISTRADO"
+        ]
+        otro_material = [
+            h for h in acusados
+            if any(m in _plano(f"{h.get('nombre_dm','')} {h.get('titulo','')} "
+                               f"{h.get('observaciones','')}")
+                   for m in MATERIALES_FUERA_ALCANCE)
+        ]
+        if otro_material:
+            avisos.append(
+                f"{len(otro_material)} hallazgo(s) acusados como NO REGISTRADO mencionan un "
+                "material distinto del látex (nitrilo, vinilo u otro). La regulación cubre "
+                "SOLO guantes de examinación y quirúrgicos de látex: esos productos están "
+                "FUERA DE ALCANCE y no son infracción. Ejemplo: "
+                f"«{otro_material[0].get('nombre_dm','')}»."
+            )
+        # Solo los que no salieron ya por material: si no, la misma fila se
+        # cuenta dos veces y el número del aviso engaña.
+        ids_material = {id(h) for h in otro_material}
+        sin_uso = [
+            h for h in acusados
+            if id(h) not in ids_material
+            and not any(u in _plano(f"{h.get('nombre_dm','')} {h.get('titulo','')}")
+                        for u in USO_MEDICO)
+        ]
+        if sin_uso:
+            avisos.append(
+                f"{len(sin_uso)} hallazgo(s) acusados como NO REGISTRADO no declaran uso de "
+                "examinación ni quirúrgico en el nombre ni en el título. Verifica en la "
+                "publicación que sean de uso médico: un guante de látex para tatuaje, "
+                "cosmetología o aseo está FUERA DE ALCANCE. Ejemplo: "
+                f"«{sin_uso[0].get('nombre_dm','')}»."
+            )
 
     marcadores = ("listado.", "/search", "?q=", "/buscar", "/s?", "google.com/search")
     busq = [u for u in urls if any(m in u.lower() for m in marcadores)]

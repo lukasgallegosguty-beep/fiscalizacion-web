@@ -526,34 +526,51 @@ Ante la duda de si un producto pertenece a la categoría, mirar los calibres y
 unidades que usa el listado ISP: si el producto está fuera de ese rango o usa
 otra unidad de medida, casi siempre es de otra familia.
 
-**Cuando TODO el listado describe un material y el producto es de otro, es una
-pregunta, no una infracción.** Antes de acusar por esa vía, mirar qué describen
-los registros del listado completo, no solo el de la marca coincidente. Si los 57
-registros dicen «guante de caucho» y el producto ofertado es de nitrilo, hay dos
-lecturas posibles y la rutina no puede elegir entre ellas:
+#### Guantes: el alcance es la INTERSECCIÓN de uso médico y látex
 
-1. El nitrilo sí requiere registro y ninguno lo tiene → son infracciones.
-2. El listado define el producto regulado como el de caucho, y el nitrilo
-   pertenece a otra categoría o no está bajo control obligatorio → están fuera de
-   alcance y acusarlos es un error.
+Regla cerrada por el ISP el 01-09-2026. La regulación cubre **solo los guantes
+de examinación y quirúrgicos fabricados en látex (caucho)**. Es una intersección,
+y hay que verificar sus dos lados antes de clasificar:
 
-En ese caso **no clasificar como NO REGISTRADO**. Dejar la clasificación en
-blanco o marcarla como fuera de alcance, y explicar en Observaciones qué material
-describen todos los registros del listado, cuál es el del producto, y que la
-decisión requiere criterio regulatorio del fiscalizador.
+| | Látex / caucho | Nitrilo, vinilo, neopreno, otros |
+|---|---|---|
+| **Examinación o quirúrgico** | **DENTRO** — clasificar normal | FUERA DE ALCANCE |
+| **Otro uso** (tatuaje, cosmetología, aseo, industrial) | FUERA DE ALCANCE | FUERA DE ALCANCE |
 
-**Caso real (25-08-2026).** El reporte de Guantes de examinación acusó 13
+Un guante que cae en cualquiera de las tres casillas grises **no es una
+infracción**, tenga o no registro sanitario. No clasificarlo NO REGISTRADO: no
+incluirlo en el reporte, o incluirlo con la clasificación **FUERA DE ALCANCE** y
+explicar en Observaciones cuál de los dos lados falla —el material o el uso—.
+
+Esto explica por qué los 57 registros del listado de examinación y los 46 del de
+quirúrgicos dicen todos «guante de caucho»: no es que falten los de nitrilo, es
+que el nitrilo no está bajo control obligatorio.
+
+**Los dos lados fallaron en producción, uno por semana.**
+
+*El material (25-08-2026).* El reporte de Guantes de examinación acusó 13
 productos de nitrilo y vinilo razonando que sus marcas —HEALTH TOUCH, MUNCARE,
 TRESOR, TOP GLOVE— figuran en el listado solo como látex. El razonamiento sobre
-los registros era correcto, pero el listado completo tiene 57 registros y los 57
-son «guante de caucho para examen médico»: ninguno de nitrilo ni vinilo. El
-Decreto Exento N°342/04 incorporó al control obligatorio los guantes de examen
-de caucho. Que el nitrilo esté o no cubierto es una pregunta regulatoria abierta,
-y la rutina la respondió sola con 13 acusaciones.
+los registros era correcto y la conclusión igual estaba mal: ninguno de esos 13
+está regulado. El inspector marcó los 13 como «Incorrecto».
 
-La señal de alerta es cuantitativa y fácil de ver: si el listado entero describe
-un solo material y varios hallazgos son de otro, revisar el alcance antes de
-emitir el reporte.
+*El uso (01-09-2026).* El mismo reporte acusó dos publicaciones de guantes
+**negros de látex** de 50 unidades, marcas Maxcare y Obopekal. Son látex, pero se
+venden para tatuaje y uso general, no para examinación. El inspector marcó las
+dos como «Incorrecto». Que el material calce no basta si el guante no es de uso
+médico.
+
+**Cómo se detecta cada lado.** El material suele estar en el título de la
+publicación; cuando no está, mirar las imágenes del envase antes de asumir látex.
+El uso se reconoce por el envase y el canal de venta: los guantes de examinación
+y quirúrgicos se publican como tales y en tiendas médicas o farmacias; los negros
+de 50 o 100 unidades en tiendas de tatuaje, belleza o ferretería casi nunca lo
+son. Ante la duda del uso, no acusar: dejarlo FUERA DE ALCANCE y explicarlo.
+
+**La señal de alerta general** sigue valiendo para las otras categorías: si el
+listado ISP entero describe un material o una presentación y varios hallazgos son
+de otra, revisar el alcance de la regulación antes de emitir el reporte, en vez
+de deducirlo del listado.
 
 #### Clasificación
 
