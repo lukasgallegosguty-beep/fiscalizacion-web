@@ -91,24 +91,30 @@ Cuando el comando devuelve `"habil": false` y sale con código 3, hay que
 por qué, y hay tres razones posibles:
 
 - **Fin de semana.**
-- **Semana 4 del mes.** Es la semana de análisis mensual: no se fiscaliza. El
-  martes se emite el consolidado y a las 09:00 se reúnen los tres a decidir qué
-  se denuncia.
-- **Quinto lunes.** Cuatro veces al año hay una semana que sobra después de
-  cerrar el mes; queda fuera del ciclo.
+- **La última semana del mes.** Es la semana de análisis mensual: no se
+  fiscaliza. El martes se emite el consolidado y a las 09:00 se reúnen los tres a
+  decidir qué se denuncia.
+
+No hay un tercer motivo. Todo día hábil que no sea de la semana de cierre es día
+de fiscalización.
 
 ### El mes, no solo la semana
 
-El mes tiene cuatro semanas, contadas **por el lunes de cada semana**. Una semana
-pertenece al mes de su lunes: la del lunes 28-09-2026 es de septiembre aunque el
-jueves ya caiga en octubre.
+Una semana pertenece al mes donde cae la **mayoría de sus días hábiles**, que es
+el mes de su **miércoles**. La semana del lunes 31-08-2026 tiene cuatro de sus
+cinco días en septiembre: es la semana 1 de septiembre.
 
 | Semana | Qué pasa | Quién revisa |
 |---|---|---|
 | 1 | Fiscalización | Emilio Millán |
 | 2 | Fiscalización | Lukas Gallegos |
 | 3 | Fiscalización | María Inés Medina |
-| 4 | Consolidado + reunión, sin búsquedas | Los tres |
+| 4 | Solo en meses de 5 semanas | Emilio Millán |
+| Última | Consolidado + reunión | Los tres |
+
+El cierre es **la última semana del mes**, no «la cuarta». Doce meses por cuatro
+semanas son 48 y el año tiene 52: cuatro veces al año un mes tiene cinco semanas.
+Anclar el cierre al final es lo que evita que sobre una semana sin trabajo.
 
 El inspector **no** se deduce ni se fija a mano: sale de `rotacion.py`.
 

@@ -527,7 +527,7 @@ def main():
 
     if args.mes:
         anio, mes = (int(x) for x in args.mes.split("-"))
-        plan = rotacion.plan_consolidacion(rotacion.lunes_semana4(anio, mes))
+        plan = rotacion.plan_consolidacion(rotacion.lunes_cierre(anio, mes))
     else:
         plan = rotacion.plan_consolidacion()
         anio, mes = plan["anio"], plan["mes"]

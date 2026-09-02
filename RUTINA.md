@@ -14,8 +14,8 @@ primera no arrastre a la segunda) y una cierra el mes.
 | Rama de salida | ninguna: la fija el prompt (`main`) | igual | igual |
 
 Las tres se disparan más veces de las que trabajan, y eso es a propósito: cron no
-sabe expresar "semana 4 del mes". Los bloques cortan en el paso 1 durante la
-semana 4, y el consolidado corta en el paso 1 los martes de las semanas 1 a 3.
+sabe expresar "última semana del mes". Los bloques cortan en el paso 1 durante la
+semana de cierre, y el consolidado corta en el paso 1 los demás martes.
 El filtro vive en `scripts/rotacion.py`, no en el cron.
 
 **Sobre el horario y el cambio de hora.** Los cron se evalúan en UTC, y Chile
@@ -31,28 +31,33 @@ pedir permiso.
 
 ## Calendario del mes
 
-El mes se divide en cuatro semanas, contadas **por el lunes de cada semana**:
+El mes se divide en semanas de búsqueda más una de cierre:
 
 | Semana | Qué pasa | Quién revisa |
 |---|---|---|
 | 1 | Fiscalización, 10 categorías | Emilio Millán · emillan@ispch.cl |
 | 2 | Fiscalización, 10 categorías | Lukas Gallegos · lgallegos@ispch.cl |
 | 3 | Fiscalización, 10 categorías | María Inés Medina · mmedina@ispch.cl |
-| 4 | **Sin búsquedas.** Martes 07:30 consolidado, 09:00 reunión | Los tres |
+| 4 | Solo en meses de 5 semanas: fiscalización | Emilio Millán |
+| **Última** | **Sin búsquedas.** Martes 07:30 consolidado, 09:00 reunión | Los tres |
 
-Una semana pertenece al mes **de su lunes**. La semana del lunes 28-09-2026 es de
-septiembre aunque el jueves ya caiga en octubre. Sin esa regla la misma semana se
-contaría en dos meses y el inspector cambiaría a media semana.
+Una semana pertenece al mes donde cae la **mayoría de sus días hábiles**, que es
+el mes de su **miércoles**. La semana del lunes 31-08-2026 tiene cuatro de sus
+cinco días en septiembre, así que es la semana 1 de septiembre.
 
-Por eso el martes de la semana 4 **no es** siempre el "cuarto martes del mes":
-en septiembre de 2026 la semana 4 empieza el lunes 28 y la reunión cae el 29,
-mientras que el cuarto martes es el 22 — que bajo este esquema todavía es semana
-3 y María Inés sigue fiscalizando. Divergen en 5 de cada 36 meses.
+**Por qué no son siempre cuatro semanas.** Doce meses por cuatro semanas son 48,
+y el año tiene 52. Cuatro veces al año un mes tiene cinco semanas y no hay forma
+de evitarlo. Por eso el cierre no es «la semana 4» sino **la última semana del
+mes**: el mes siempre cierra al final y ninguna semana queda sin trabajo. En los
+meses de cinco, la cuarta también fiscaliza y le vuelve a tocar a Emilio, porque
+la rotación es de tres.
 
-Cuatro veces al año hay un quinto lunes. Esa semana queda **fuera del ciclo**: el
-mes ya se cerró en la semana 4 y una cuarta semana de búsqueda no tendría
-inspector asignado. Para correrla igual, agrega el `4` a `SEMANAS_BUSQUEDA` en
-`scripts/rotacion.py` y define quién revisa.
+**Qué pasaba antes.** La semana pertenecía al mes de su lunes y el cierre era
+siempre la cuarta. Eso dejaba semanas muertas: la del 31-08-2026 quedó fuera del
+ciclo y el miércoles 02-09 las dos rutinas dispararon, salieron en el paso 1 y no
+fiscalizaron nada.
+
+## Calendario de la semana
 
 ## Calendario de la semana
 
@@ -67,14 +72,14 @@ inspector asignado. Para correrla igual, agrega el `4` a `SEMANAS_BUSQUEDA` en
 Es un calendario fijo, no una rotación: si una corrida falla, el mismo día de la
 semana siguiente vuelve a tocar esa categoría. No hay estado que se descuadre.
 
-## La semana 4: cierre del mes
+## La última semana: cierre del mes
 
 No se fiscaliza. El martes:
 
 - **07:30** — `scripts/consolidado.py` arma un Excel con todos los casos del mes
   que sobrevivieron a la revisión, y se envía a los tres por correo.
-- **09:00** — reunión de una hora (evento recurrente ya creado en Google
-  Calendar, con Meet) para decidir caso por caso qué se procesa como denuncia.
+- **09:00** — reunión de una hora (evento en Google Calendar, con Meet) para
+  decidir caso por caso qué se procesa como denuncia.
 
 Al consolidado entran dos cosas:
 
@@ -114,9 +119,9 @@ perdería igual.
 PASO 1 — QUÉ TOCA HOY
 Ejecuta: python3 scripts/rotacion.py --slot 1 --json
 Si devuelve "habil": false, TERMINA sin generar nada y sin escribirle a nadie.
-Puede ser fin de semana, la semana 4 del mes (reservada al análisis mensual: esa
-semana NO se fiscaliza) o un quinto lunes fuera del ciclo. El campo "motivo" dice
-cuál es; repítelo en la notificación y no hagas nada más.
+Solo hay dos motivos posibles: fin de semana, o la ÚLTIMA semana del mes, que
+está reservada al análisis mensual y no se fiscaliza. El campo "motivo" dice cuál
+es; repítelo en la notificación y no hagas nada más.
 Usa la categoría, el Excel ISP, la hoja, la ruta de salida y el inspector que
 devuelve. No deduzcas la categoría por tu cuenta.
 
@@ -237,8 +242,8 @@ Si sale distinto de 0, ABORTA y notifica el error textual que imprimió.
 
 PASO 1 — ¿TOCA HOY?
 Ejecuta: python3 scripts/rotacion.py --consolidacion --json
-Esta rutina se dispara TODOS los martes porque cron no sabe expresar "semana 4
-del mes". El filtro real es este paso: si "es_hoy" es false, TERMINA de inmediato
+Esta rutina se dispara TODOS los martes porque cron no sabe expresar "última
+semana del mes". El filtro real es este paso: si "es_hoy" es false, TERMINA de inmediato
 sin generar nada y sin escribirle a nadie. No es un error: es lo que pasa la
 mayoría de los martes. Dilo en la notificación en una línea y cierra.
 
@@ -291,8 +296,8 @@ Las reuniones están creadas en Google Calendar como eventos INDIVIDUALES, uno p
 mes, con título "Fiscalización web DM — revisión mensual de casos (<mes> <año>)",
 09:00-10:00 y los tres invitados.
 No son un evento recurrente a propósito: la recurrencia solo se puede expresar
-con RDATE (fechas explícitas), porque el martes de la semana 4 no coincide con el
-"cuarto martes del mes" en 5 de cada 36 meses. Y Outlook no soporta RDATE: la
+con RDATE (fechas explícitas), porque el martes de la última semana no coincide
+con el "cuarto martes del mes". Y Outlook no soporta RDATE: la
 invitación llega y no se puede agregar. Un evento por mes es lo único que abre
 bien en los dos calendarios.
 

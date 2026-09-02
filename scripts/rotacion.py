@@ -13,17 +13,27 @@ vuelve a tocar lo mismo que este lunes.
     Jueves     1) Jeringas hipodérmicas        2) Kits VIH uso profesional
     Viernes    1) Preservativos masculinos     2) Preservativos femeninos
 
-El mes se organiza en cuatro semanas, contadas por el lunes de cada semana:
+El mes se organiza en semanas de búsqueda más una de cierre:
 
-    Semana 1   búsqueda   revisa Emilio Millán
-    Semana 2   búsqueda   revisa Lukas Gallegos
-    Semana 3   búsqueda   revisa María Inés Medina
-    Semana 4   SIN BÚSQUEDA. El martes se emite el consolidado mensual a los
-               tres y se reúnen a las 09:00 a resolver qué se denuncia.
+    Semana 1     búsqueda   revisa Emilio Millán
+    Semana 2     búsqueda   revisa Lukas Gallegos
+    Semana 3     búsqueda   revisa María Inés Medina
+    (Semana 4)   búsqueda   solo en los meses de 5 semanas; vuelve a Emilio
+    ÚLTIMA       SIN BÚSQUEDA. El martes se emite el consolidado mensual a los
+                 tres y se reúnen a las 09:00 a resolver qué se denuncia.
 
-Una semana pertenece al mes de su LUNES. La semana del lunes 28-09 sigue siendo
-de septiembre aunque el jueves ya caiga en octubre: sin esa regla una misma
-semana se contaría en dos meses y el inspector cambiaría a media semana.
+Una semana pertenece al mes donde cae la MAYORÍA de sus días hábiles, que es el
+mes de su MIÉRCOLES. La semana del lunes 31-08-2026 tiene cuatro de sus cinco
+días en septiembre, así que es la semana 1 de septiembre, no la quinta de agosto.
+
+Antes la semana pertenecía al mes de su lunes, y eso dejaba semanas muertas: la
+del 31-08 quedó fuera del ciclo y el miércoles 02-09 las rutinas no fiscalizaron
+nada. Con la regla del miércoles esa semana entra donde corresponde.
+
+NO se puede garantizar que todo mes tenga exactamente 4 semanas: 12 x 4 = 48 y el
+año tiene 52. Cuatro veces al año un mes tiene cinco. Por eso el cierre no es "la
+semana 4" sino LA ÚLTIMA semana del mes: así el mes siempre cierra al final y
+ninguna semana queda sin trabajo.
 
 Uso:
     python3 scripts/rotacion.py --slot 1              # bloque 1 de hoy
@@ -35,6 +45,7 @@ Uso:
 """
 
 import argparse
+import calendar
 import glob
 import json
 import os
@@ -152,9 +163,8 @@ INSPECTOR_POR_SEMANA = {1: INSPECTORES[0], 2: INSPECTORES[1], 3: INSPECTORES[2]}
 # Quien organiza la reunión mensual y firma la invitación de calendario.
 ORGANIZADOR = {"nombre": "Lukas Gallegos", "email": "lgallegos@ispch.cl"}
 
-# Semanas del mes en que se fiscaliza, y semana reservada al análisis mensual.
-SEMANAS_BUSQUEDA = (1, 2, 3)
-SEMANA_CONSOLIDACION = 4
+# El cierre va siempre en la ÚLTIMA semana del mes, sea la cuarta o la quinta.
+# Todas las anteriores fiscalizan: así ninguna semana queda sin trabajo.
 DIA_CONSOLIDACION = 1        # martes (0 = lunes)
 HORA_CONSOLIDACION = "07:30"  # envío del consolidado
 HORA_REUNION = (9, 0)         # inicio de la reunión mensual
@@ -180,68 +190,74 @@ def lunes_de(fecha):
     return fecha - timedelta(days=fecha.weekday())
 
 
+def semanas_del_mes(anio, mes):
+    """Los lunes de las semanas que pertenecen a ese mes.
+
+    Una semana es del mes donde cae la mayoría de sus días hábiles, es decir el
+    mes de su miércoles. Así que las semanas del mes son las de sus miércoles:
+    cuatro o cinco, nunca otra cosa.
+    """
+    ultimo = calendar.monthrange(anio, mes)[1]
+    primer_miercoles = next(d for d in range(1, 8) if date(anio, mes, d).weekday() == 2)
+    primer_lunes = date(anio, mes, primer_miercoles) - timedelta(days=2)
+    cuantas = 1 + (ultimo - primer_miercoles) // 7
+    return [primer_lunes + timedelta(weeks=i) for i in range(cuantas)]
+
+
 def semana_de(fecha):
     """Ubica la fecha en el calendario mensual.
 
-    La semana pertenece al mes de su LUNES. Es lo que hace que la asignación no
-    cambie a media semana cuando el mes parte un miércoles, y que cada semana
-    tenga un único número de mes sin ambigüedad.
+    `n` es el número de semana dentro del mes y `total` cuántas tiene ese mes.
+    La última es siempre la de cierre, tenga el mes cuatro semanas o cinco.
     """
     lunes = lunes_de(fecha)
-    n = (lunes.day - 1) // 7 + 1
+    miercoles = lunes + timedelta(days=2)
+    anio, mes = miercoles.year, miercoles.month
+    semanas = semanas_del_mes(anio, mes)
+    n = semanas.index(lunes) + 1
     return {
         "n": n,
+        "total": len(semanas),
+        "ultima": n == len(semanas),
         "lunes": lunes.isoformat(),
-        "anio": lunes.year,
-        "mes": lunes.month,
-        "mes_nombre": MESES[lunes.month - 1],
-        "periodo": f"{lunes.year}-{lunes.month:02d}",
+        "anio": anio,
+        "mes": mes,
+        "mes_nombre": MESES[mes - 1],
+        "periodo": f"{anio}-{mes:02d}",
     }
 
 
 def modo_de(fecha):
-    """Qué se hace esa semana: buscar, consolidar o nada."""
-    n = semana_de(fecha)["n"]
-    if n in SEMANAS_BUSQUEDA:
-        return "busqueda"
-    if n == SEMANA_CONSOLIDACION:
-        return "consolidacion"
-    # Cuatro meses al año tienen un quinto lunes. Esa semana queda fuera del
-    # ciclo: el mes ya se cerró con el consolidado de la semana 4 y abrir una
-    # cuarta semana de búsqueda no tendría inspector asignado.
-    return "sin-programacion"
+    """Qué se hace esa semana: buscar o consolidar. Nunca 'nada'."""
+    return "consolidacion" if semana_de(fecha)["ultima"] else "busqueda"
 
 
 def inspector_de(fecha):
-    """Inspector a cargo de la semana, o None si esa semana no se fiscaliza."""
+    """Inspector a cargo de la semana, o None si es la semana de cierre.
+
+    La rotación es de tres y se recorre por posición dentro del mes. En los meses
+    de cinco semanas hay una cuarta semana de búsqueda, y le vuelve a tocar a
+    Emilio: es la consecuencia de que el ciclo sea de tres y el mes no siempre
+    quepa en tres semanas más el cierre.
+    """
     sem = semana_de(fecha)
-    base = INSPECTOR_POR_SEMANA.get(sem["n"])
-    if base is None:
+    if sem["ultima"]:
         return None
-    insp = dict(base)
+    insp = dict(INSPECTORES[(sem["n"] - 1) % len(INSPECTORES)])
     insp["semana_mes"] = sem["n"]
     insp["lunes_semana"] = sem["lunes"]
     insp["periodo"] = sem["periodo"]
     return insp
 
 
-def lunes_semana4(anio, mes):
-    """El lunes de la semana 4 de ese mes.
-
-    Siempre cae entre el 22 y el 28: son siete días consecutivos, así que
-    contienen exactamente un lunes, y todo mes llega al 28. La función no puede
-    devolver None.
-    """
-    for d in range(22, 29):
-        f = date(anio, mes, d)
-        if f.weekday() == 0:
-            return f
-    raise AssertionError(f"{anio}-{mes:02d} sin lunes entre el 22 y el 28")
+def lunes_cierre(anio, mes):
+    """El lunes de la semana de cierre: la última del mes."""
+    return semanas_del_mes(anio, mes)[-1]
 
 
 def martes_consolidacion(anio, mes):
-    """El martes de la semana 4: día del consolidado y de la reunión."""
-    return lunes_semana4(anio, mes) + timedelta(days=DIA_CONSOLIDACION)
+    """El martes de la última semana: día del consolidado y de la reunión."""
+    return lunes_cierre(anio, mes) + timedelta(days=DIA_CONSOLIDACION)
 
 
 def categorias_del_dia(fecha):
@@ -486,6 +502,7 @@ def construir_plan(fecha=None, slot=1):
         "fecha_iso": fecha.isoformat(),
         "slot": slot,
         "semana_mes": sem["n"],
+        "semanas_del_mes": sem["total"],
         "periodo": sem["periodo"],
         "modo_semana": modo,
     }
@@ -494,20 +511,13 @@ def construir_plan(fecha=None, slot=1):
     # igual que un fin de semana, para que la rutina de búsqueda corte en el
     # paso 1 sin gastar la corrida.
     if modo != "busqueda":
-        if modo == "consolidacion":
-            martes = martes_consolidacion(sem["anio"], sem["mes"])
-            base["motivo"] = (
-                f"semana {sem['n']} de {sem['mes_nombre']}: semana de análisis mensual, "
-                f"no se fiscaliza. El consolidado se emite el martes "
-                f"{martes.strftime('%d-%m-%Y')} a las {HORA_CONSOLIDACION}."
-            )
-            base["fecha_consolidacion"] = martes.isoformat()
-        else:
-            base["motivo"] = (
-                f"semana {sem['n']} de {sem['mes_nombre']}: fuera del ciclo mensual. "
-                f"El mes ya se cerró en la semana {SEMANA_CONSOLIDACION}; "
-                "no hay fiscalización programada."
-            )
+        martes = martes_consolidacion(sem["anio"], sem["mes"])
+        base["motivo"] = (
+            f"semana {sem['n']} de {sem['n']} de {sem['mes_nombre']}: última semana "
+            f"del mes, reservada al análisis mensual. No se fiscaliza. El consolidado "
+            f"se emite el martes {martes.strftime('%d-%m-%Y')} a las {HORA_CONSOLIDACION}."
+        )
+        base["fecha_consolidacion"] = martes.isoformat()
         return dict(habil=False, **base)
 
     cat = categoria_de(fecha, slot)
@@ -521,6 +531,7 @@ def construir_plan(fecha=None, slot=1):
         "dia": DIAS[fecha.weekday()],
         "slot": slot,
         "semana_mes": sem["n"],
+        "semanas_del_mes": sem["total"],
         "periodo": sem["periodo"],
         "modo_semana": modo,
         "slug": cat["slug"],
@@ -570,6 +581,7 @@ def plan_semana(fecha=None):
     return {
         "lunes": lunes.isoformat(),
         "semana_mes": sem["n"],
+        "semanas_del_mes": sem["total"],
         "periodo": sem["periodo"],
         "modo_semana": modo_de(fecha),
         "inspector": inspector_de(fecha),
@@ -580,15 +592,13 @@ def plan_semana(fecha=None):
 def bloques_del_mes(anio, mes):
     """Las 30 asignaciones de búsqueda del mes: 10 por cada semana 1, 2 y 3.
 
-    Los lunes se derivan restando semanas al lunes de la semana 4, no contando
-    hacia adelante desde el día 1. Así el mes que empieza a mitad de semana no
-    puede desalinear la cuenta respecto de `semana_de()`.
+    Son todas las semanas del mes menos la última, que es la de cierre. En los
+    meses de cinco semanas eso da 40 bloques en vez de 30.
     """
-    l4 = lunes_semana4(anio, mes)
+    semanas = semanas_del_mes(anio, mes)
     filas = []
-    for n in SEMANAS_BUSQUEDA:
-        lunes = l4 - timedelta(weeks=SEMANA_CONSOLIDACION - n)
-        insp = INSPECTOR_POR_SEMANA[n]
+    for n, lunes in enumerate(semanas[:-1], start=1):
+        insp = INSPECTORES[(n - 1) % len(INSPECTORES)]
         for i in range(5):
             d = lunes + timedelta(days=i)
             for slot in (1, 2):
@@ -630,7 +640,8 @@ def plan_consolidacion(fecha=None):
         "anio": sem["anio"],
         "mes": sem["mes"],
         "semana_mes": sem["n"],
-        "es_semana_consolidacion": sem["n"] == SEMANA_CONSOLIDACION,
+        "semanas_del_mes": sem["total"],
+        "es_semana_consolidacion": sem["ultima"],
         "es_hoy": fecha == martes,
         "fecha": martes.isoformat(),
         "fecha_dmy": martes.strftime("%d-%m-%Y"),
@@ -739,7 +750,8 @@ def main():
         else:
             insp = sem["inspector"]
             quien = f"revisa: {insp['nombre']} <{insp['email']}>" if insp else "sin inspector asignado"
-            print(f"Semana {sem['semana_mes']} de {sem['periodo']} (lunes {sem['lunes']})  ·  {quien}")
+            print(f"Semana {sem['semana_mes']}/{sem['semanas_del_mes']} de {sem['periodo']} "
+                  f"(lunes {sem['lunes']})  ·  {quien}")
             if sem["modo_semana"] != "busqueda":
                 print(f"  {construir_plan(fecha, 1)['motivo']}")
             for b in sem["bloques"]:
@@ -794,7 +806,7 @@ def main():
 
     insp = plan["inspector"]
     print(f"Día            : {plan['dia']} {plan['fecha']}  ·  bloque {plan['slot']}  "
-          f"·  semana {plan['semana_mes']} de {plan['periodo']}")
+          f"·  semana {plan['semana_mes']}/{plan['semanas_del_mes']} de {plan['periodo']}")
     print(f"Categoría      : {plan['categoria']}  ({plan['slug']})")
     print(f"Excel ISP      : {plan['excel_isp'] or '*** NO ENCONTRADO ***'}")
     print(f"Hoja           : {plan['hoja'] or '(primera hoja)'}")
