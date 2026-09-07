@@ -1,0 +1,11 @@
+{
+  "categoria": "autotest-vih",
+  "nombre": "Autotest VIH",
+  "fecha": "2026-09-07",
+  "dia": "lunes",
+  "slot": 2,
+  "archivo": "Fiscalizacion_Web_DM_autotest-vih_07-09-2026.xlsx",
+  "inspector": "lgallegos@ispch.cl",
+  "hallazgos": 2,
+  "detectados": 2
+}
