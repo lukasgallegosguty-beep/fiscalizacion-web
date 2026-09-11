@@ -6,6 +6,7 @@
   "slot": 1,
   "archivo": "Fiscalizacion_Web_DM_jeringas-hipodermicas_03-09-2026.xlsx",
   "inspector": "emillan@ispch.cl",
-  "hallazgos": 7,
-  "detectados": 7
+  "hallazgos": 17,
+  "detectados": 21,
+  "nota": "Corrida original ejecutada en plazo el 2026-09-03 10:44 UTC (commit 8eca352); su push quedó varado en la rama claude/zealous-franklin-ymty5z y nunca llegó a main. Rescatada el 2026-09-11 y fusionada con la pasada complementaria de esa fecha: 10 hallazgos originales + 7 complementarios. El anexo sobre el tope conserva las 5 filas de la corrida original."
 }

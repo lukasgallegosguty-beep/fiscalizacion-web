@@ -190,8 +190,16 @@ En este orden exacto:
      Si aun así el rebase falla, NO abandones el push: resuelve el conflicto
      conservando ambos lados y vuelve a intentar. Que el reporte quede en una
      rama suelta significa que el inspector no lo recibe.
-  5. Verifica que git status no muestre commits sin subir, y anota en qué rama
-     quedó finalmente el archivo: lo necesitas para el enlace del paso 6.
+  5. COMPRUEBA QUE EL ARCHIVO ESTÁ EN main. Que git status quede limpio no
+     prueba nada: el entorno puede redirigir el push a la rama de la sesión y
+     devolver éxito igual. Eso pasó el 03-09-2026 y el reporte de Jeringas
+     hipodérmicas estuvo ocho días perdido en una rama suelta sin que nadie se
+     enterara. La única comprobación válida es:
+       git fetch origin main -q
+       git cat-file -e origin/main:resultados/<archivo>.xlsx && echo "OK en main"
+     Si NO está: averigua en qué rama quedó (git branch -r --contains HEAD),
+     dilo en la notificación con el nombre de la rama y arma el enlace del paso 6
+     con esa rama en lugar de main.
 Si el push falla, dilo en la notificación con el error textual. Nunca termines en
 silencio dando por hecho que se guardó.
 
@@ -247,6 +255,13 @@ semana del mes". El filtro real es este paso: si "es_hoy" es false, TERMINA de i
 sin generar nada y sin escribirle a nadie. No es un error: es lo que pasa la
 mayoría de los martes. Dilo en la notificación en una línea y cierra.
 
+PASO 1-bis — RESCATAR LO QUE QUEDÓ VARADO
+Ejecuta: bash scripts/ramas_varadas.sh
+Lista los reportes que se generaron pero nunca llegaron a main porque el push se
+fue a la rama de la sesión. Si imprime algo, rescátalo ANTES de consolidar
+(git show <rama>:<ruta> > <ruta>, add, commit, push): si no, el consolidado del
+mes sale incompleto y nadie se entera.
+
 PASO 2 — CONSOLIDAR
 Ejecuta: python3 scripts/consolidado.py --json
 Genera el Excel del mes en resultados/. NO lo edites a mano y NO completes las
@@ -262,9 +277,12 @@ PASO 3 — PERSISTIR EN GIT (OBLIGATORIO)
        git push origin main && break
        git pull --rebase origin main
      done
-  4. Verifica que git status no muestre commits sin subir.
-Si el push falla, dilo con el error textual y NO sigas al paso 4: sin push no hay
-enlace que enviar y el correo llegaría roto.
+  4. Comprueba que el archivo llegó de verdad a main — git status limpio no lo
+     prueba, porque el entorno puede redirigir el push a la rama de la sesión:
+       git fetch origin main -q
+       git cat-file -e origin/main:resultados/<archivo>.xlsx && echo "OK en main"
+Si el push falla, o si el archivo no está en main, dilo con el error textual y NO
+sigas al paso 4: sin push no hay enlace que enviar y el correo llegaría roto.
 
 PASO 4 — ENVIAR A LOS TRES
 Un solo correo por Gmail, con los tres destinatarios que devolvió el paso 1

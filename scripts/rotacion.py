@@ -479,7 +479,16 @@ def reportes_previos(cat):
     patron = f"Fiscalizacion_Web_DM_{cat['slug']}_*.xlsx"
     # Los devueltos se buscan por atribución, no por glob: llegan renombrados.
     revisados = [i["ruta"] for i in reversed(archivos_revisados(cat["slug"])[0])]
-    crudos = sorted(glob.glob(os.path.join(DIR_RESULTADOS, patron)), key=os.path.getmtime, reverse=True)
+    # Ordenar por la fecha DEL NOMBRE, no por mtime: el contenedor clona el
+    # repositorio en cada corrida, así que todos los archivos quedan con la
+    # misma fecha de modificación y el orden sale arbitrario. Peor aún al
+    # rescatar un reporte viejo varado en una rama: entra con mtime de hoy y se
+    # cuela como "el más reciente" por delante de los que sí lo son.
+    crudos = sorted(
+        glob.glob(os.path.join(DIR_RESULTADOS, patron)),
+        key=lambda r: (atribuir_archivo(r) or {}).get("fecha") or date.min,
+        reverse=True,
+    )
     return {"revisados": revisados, "crudos": crudos}
 
 

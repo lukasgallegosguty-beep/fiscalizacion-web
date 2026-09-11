@@ -204,9 +204,24 @@ for intento in 1 2 3; do
 done
 ```
 
-**Verificar que el push terminó bien** (`git status` debe quedar sin commits
-pendientes de subir). Si falla, decirlo explícitamente en la notificación con el
-error textual — nunca terminar en silencio dando por hecho que se guardó.
+**Verificar que el push terminó bien.** `git status` limpio NO alcanza: el
+entorno remoto puede redirigir un `git push origin main` a la rama de la sesión
+y devolver éxito igual. Hay que comprobar que el archivo existe de verdad en
+`origin/main`:
+
+```bash
+git fetch origin main -q
+git cat-file -e origin/main:resultados/<archivo>.xlsx && echo "OK: está en main"
+```
+
+- **Existe** → el push llegó. Continuar.
+- **No existe** → el reporte quedó varado en otra rama. Averiguar en cuál
+  (`git branch -r --contains HEAD`), decirlo en la notificación con el nombre de
+  la rama, y armar el enlace del correo con esa rama en vez de `main`. Nunca
+  terminar en silencio dando por hecho que se guardó.
+
+Si el push falla con error, decirlo explícitamente en la notificación con el
+error textual.
 
 Registrar la categoría como procesada **solo si el push tuvo éxito**. Si se
 avanza el estado y el push falla, la categoría queda marcada como hecha sin que
@@ -219,6 +234,22 @@ archivo: el `git pull --rebase` fallaba por el conflicto, el push a `main` no
 ocurría y el reporte quedaba varado en una rama suelta que nadie miraba. Pasó dos
 días seguidos, con Desfibriladores y con Jeringas con agujas. Ahora cada corrida
 escribe `historial/<fecha>_slot<N>.json`, un archivo que ninguna otra toca.
+
+**Por qué no basta con que el push no dé error.** El 03-09-2026 volvió a pasar,
+ya con los historiales separados y con el bucle de reintento puesto: los dos
+bloques corrieron a la misma hora (10:44 UTC), el de Kits VIH llegó a `main` y el
+de Jeringas hipodérmicas quedó en `claude/zealous-franklin-ymty5z`. La corrida no
+avisó nada porque su `git push` terminó sin error y `git status` quedó limpio: el
+entorno la redirigió a su propia rama. El reporte existía, estaba bien hecho, y
+nadie lo vio durante ocho días. De ahí la comprobación con `git cat-file -e
+origin/main:...`: es la única que distingue "empujé" de "empujé a donde
+corresponde".
+
+**La red de seguridad.** `bash scripts/ramas_varadas.sh` recorre todas las ramas
+remotas y lista los Excel de `resultados/` que no están en `main`. Correrlo en el
+cierre mensual, antes de consolidar. Al estrenarlo el 11-09-2026 aparecieron dos
+reportes de guantes quirúrgicos del 19 y 20 de agosto que llevaban tres semanas
+varados y que nadie echó de menos.
 
 ### El cierre mensual (semana 4)
 
