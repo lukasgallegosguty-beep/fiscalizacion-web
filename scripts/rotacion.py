@@ -51,7 +51,8 @@ import json
 import os
 import re
 import sys
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR_ISP = os.path.join(RAIZ, "registros-isp")
@@ -258,6 +259,32 @@ def lunes_cierre(anio, mes):
 def martes_consolidacion(anio, mes):
     """El martes de la última semana: día del consolidado y de la reunión."""
     return lunes_cierre(anio, mes) + timedelta(days=DIA_CONSOLIDACION)
+
+
+def instante_utc(fecha, hhmm):
+    """El momento UTC que corresponde a esa hora local chilena, en RFC3339.
+
+    Chile cambia de huso dos veces al año (UTC-4 en invierno, UTC-3 en verano),
+    y el cron del trigger se guarda en UTC sin campo de zona horaria: nadie lo
+    ajusta solo. Calcularlo aquí evita que el cierre se corra una hora cada vez
+    que cambia la hora, que es exactamente lo que pasó en septiembre de 2026.
+    """
+    h, m = (int(x) for x in hhmm.split(":"))
+    local = datetime.combine(fecha, time(h, m), tzinfo=ZoneInfo("America/Santiago"))
+    return local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def proximo_cierre(despues_de):
+    """El cierre mensual siguiente al de `despues_de`. Nunca devuelve el mismo."""
+    anio, mes = despues_de.year, despues_de.month
+    for _ in range(3):
+        mes += 1
+        if mes > 12:
+            mes, anio = 1, anio + 1
+        siguiente = martes_consolidacion(anio, mes)
+        if siguiente > despues_de:
+            return siguiente
+    raise RuntimeError("no se pudo calcular el próximo cierre")
 
 
 def categorias_del_dia(fecha):
@@ -630,12 +657,14 @@ def plan_consolidacion(fecha=None):
     """Plan del cierre mensual: qué mes se consolida, cuándo y con qué insumos.
 
     `es_hoy` es lo que debe mirar la rutina: sale True solo el martes de la
-    semana 4. La rutina se dispara todos los martes porque cron no sabe expresar
-    "semana 4 del mes", así que el filtro real vive aquí.
+    última semana del mes. El trigger se dispara UNA vez al mes, en la fecha
+    exacta, y se reprograma con `proximo_cierre_utc` antes de trabajar. `es_hoy`
+    queda igual como red de seguridad por si alguien lo dispara a mano.
     """
     fecha = fecha or date.today()
     sem = semana_de(fecha)
     martes = martes_consolidacion(sem["anio"], sem["mes"])
+    proximo_siguiente = proximo_cierre(martes)
     reunion = datetime.combine(martes, time(*HORA_REUNION))
     esperados = bloques_del_mes(sem["anio"], sem["mes"])
 
@@ -655,6 +684,14 @@ def plan_consolidacion(fecha=None):
         "fecha": martes.isoformat(),
         "fecha_dmy": martes.strftime("%d-%m-%Y"),
         "hora_envio": HORA_CONSOLIDACION,
+        "instante_utc": instante_utc(martes, HORA_CONSOLIDACION),
+        # Con esto la rutina se reprograma sola: el trigger es de disparo único
+        # porque cron no sabe decir "el martes de la última semana" (y en este
+        # scheduler día-del-mes y día-de-semana se combinan con OR, no con AND,
+        # así que acotar los días solo agrega disparos).
+        "proximo_cierre": proximo_siguiente.isoformat(),
+        "proximo_cierre_dmy": proximo_siguiente.strftime("%d-%m-%Y"),
+        "proximo_cierre_utc": instante_utc(proximo_siguiente, HORA_CONSOLIDACION),
         "reunion_inicio": reunion.isoformat(),
         "reunion_fin": (reunion + timedelta(minutes=DURACION_REUNION_MIN)).isoformat(),
         "duracion_min": DURACION_REUNION_MIN,

@@ -251,11 +251,20 @@ cierre mensual, antes de consolidar. Al estrenarlo el 11-09-2026 aparecieron dos
 reportes de guantes quirúrgicos del 19 y 20 de agosto que llevaban tres semanas
 varados y que nadie echó de menos.
 
-### El cierre mensual (semana 4)
+### El cierre mensual (última semana)
 
 Esa semana no se busca. El martes a las 07:30 corre `scripts/consolidado.py`, que
 junta en un solo Excel todo lo que el mes dejó en pie, y a las 09:00 los tres
 deciden qué se procesa como denuncia.
+
+**Cómo se programa.** La rutina del cierre no tiene cron: es un trigger de
+disparo único que se reprograma a sí mismo antes de trabajar, con el campo
+`proximo_cierre_utc` de `rotacion.py --consolidacion --json` (que ya viene con el
+huso chileno resuelto). No hay cron de 5 campos que diga "el martes de la última
+semana": no es "el cuarto martes", y este scheduler combina día-del-mes con
+día-de-semana usando **OR**, así que acotar los días multiplica los disparos en
+vez de reducirlos. Con `30 10 * * 2` la rutina despertaba cuatro o cinco veces al
+mes para cortar de inmediato; ahora despierta una.
 
 Dos reglas que gobiernan qué entra a ese archivo:
 

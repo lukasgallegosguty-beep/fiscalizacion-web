@@ -8,22 +8,42 @@ primera no arrastre a la segunda) y una cierra el mes.
 | Opción | Bloque 1 | Bloque 2 | Consolidado mensual |
 |---|---|---|---|
 | Nombre | Fiscalización web — bloque 1 | Fiscalización web — bloque 2 | Fiscalización web — consolidado mensual |
-| Frecuencia | Lun–Vie 07:30 (hora Chile) | Lun–Vie 07:30 | **Martes** 07:30 |
+| Frecuencia | Lun–Vie 07:30 (hora Chile) | Lun–Vie 07:30 | **Una vez al mes**, martes de cierre 07:30 |
 | Repositorio | `lukasgallegosguty-beep/fiscalizacion-web` | igual | igual |
 | Conectores | Gmail | Gmail | Gmail **y Google Calendar** |
 | Rama de salida | ninguna: la fija el prompt (`main`) | igual | igual |
 
-Las tres se disparan más veces de las que trabajan, y eso es a propósito: cron no
-sabe expresar "última semana del mes". Los bloques cortan en el paso 1 durante la
-semana de cierre, y el consolidado corta en el paso 1 los demás martes.
-El filtro vive en `scripts/rotacion.py`, no en el cron.
+Los dos bloques diarios se disparan más veces de las que trabajan, y eso es a
+propósito: cortan en el paso 1 durante la semana de cierre. El filtro vive en
+`scripts/rotacion.py`, no en el cron.
+
+El consolidado es distinto: **no tiene cron**. Corre exactamente una vez al mes
+porque es un trigger de disparo único que, antes de trabajar, se reprograma para
+el cierre siguiente con el campo `proximo_cierre_utc` que entrega
+`rotacion.py --consolidacion --json`.
+
+Hasta el 14-09-2026 tenía cron `30 10 * * 2` y se despertaba los cuatro o cinco
+martes del mes para cortar en el paso 1. Cron no sabe decir "el martes de la
+última semana", y acotar los días tampoco sirve: **este scheduler combina el
+día-del-mes con el día-de-semana usando OR, no AND** (comprobado: con
+`30 10 22-30 * 2` el próximo disparo salía el martes 15, que no está en el rango).
+Un cron `22-30` habría pasado de 4 disparos al mes a 9. Por eso el disparo único.
+
+La contrapartida es que si la reprogramación falla, la rutina no vuelve a
+dispararse. Por eso el paso 2 va **primero**, antes de consolidar, y si no puede
+reprogramarse manda un correo de alerta en vez de morir callada.
 
 **Sobre el horario y el cambio de hora.** Los cron se evalúan en UTC, y Chile
 cambia de huso dos veces al año: 07:30 local son las **11:30 UTC** en invierno
 (abril–septiembre) y las **10:30 UTC** en verano (octubre–marzo). Si fijas la hora
 con el selector del editor de rutinas, la conversión es automática y no hay que
 tocar nada. Si en cambio pones un cron a mano, hay que corregirlo en cada cambio
-de hora, o la rutina se corre una hora.
+de hora, o la rutina se corre una hora. Los bloques 1 y 2 tienen cron a mano, así
+que van en esa lista de revisión dos veces al año.
+
+El consolidado ya no: `rotacion.py` resuelve el huso con `zoneinfo` y entrega el
+instante UTC ya convertido, de modo que la reprogramación mensual cruza los
+cambios de hora sin que nadie toque nada.
 
 **Sobre los conectores.** Deja solo Gmail. Durante una corrida la rutina puede
 usar cualquier herramienta de un conector incluido, escrituras incluidas, sin
@@ -56,8 +76,6 @@ la rotación es de tres.
 siempre la cuarta. Eso dejaba semanas muertas: la del 31-08-2026 quedó fuera del
 ciclo y el miércoles 02-09 las dos rutinas dispararon, salieron en el paso 1 y no
 fiscalizaron nada.
-
-## Calendario de la semana
 
 ## Calendario de la semana
 
@@ -239,53 +257,90 @@ bloqueados; confirmación del push; y a quién se envió el correo.
 
 ## Prompt — consolidado mensual
 
-Rutina aparte, **martes 07:30**, con los conectores **Gmail y Google Calendar**.
+Rutina aparte, **una vez al mes** a las 07:30 del martes de cierre, con los
+conectores **Gmail y Google Calendar**. No lleva cron: es un trigger de disparo
+único (`run_once_at`) que se reprograma a sí mismo en su paso 2.
 
 ```
 Ejecuta el cierre mensual de la fiscalización web de DM.
 
-PASO 0 — PREFLIGHT (ANTES DE NADA)
+Este trigger es de DISPARO ÚNICO y se reprograma solo. No es semanal: corre una
+vez al mes, el martes de la última semana. Cron no puede expresar esa fecha —
+"el martes de la última semana" no es "el cuarto martes", y en este scheduler el
+día-del-mes y el día-de-semana se combinan con OR, no con AND, así que acotar
+los días solo agrega disparos. Por eso el paso 2 es obligatorio: si no se
+reprograma, no vuelve a correr nunca.
+
+PASO 0 — TENER EL REPOSITORIO
+Este trigger no trae el repositorio clonado. Compruébalo y, si falta, tráelo:
+  ls scripts/rotacion.py 2>/dev/null || {
+    # adjuntar con permiso de escritura y clonar
+    #   herramienta add_repo del MCP claude-code-remote,
+    #   owner "lukasgallegosguty-beep", repo "fiscalizacion-web", access "push"
+    # y después el git clone que devuelva, entrando al directorio clonado.
+  }
+Trabaja siempre desde la raíz del repositorio. Si no lo puedes clonar, ABORTA y
+notifica el error textual: sin repositorio no hay consolidado.
+
+PASO 1 — PREFLIGHT
 Ejecuta: bash scripts/preflight.sh main
 Si sale distinto de 0, ABORTA y notifica el error textual que imprimió.
 
-PASO 1 — ¿TOCA HOY?
+PASO 2 — REPROGRAMARTE (ANTES DE TRABAJAR, NO DESPUÉS)
 Ejecuta: python3 scripts/rotacion.py --consolidacion --json
-Esta rutina se dispara TODOS los martes porque cron no sabe expresar "última
-semana del mes". El filtro real es este paso: si "es_hoy" es false, TERMINA de inmediato
-sin generar nada y sin escribirle a nadie. No es un error: es lo que pasa la
-mayoría de los martes. Dilo en la notificación en una línea y cierra.
+Toma el campo "proximo_cierre_utc" (ya viene con el huso chileno resuelto, no lo
+recalcules ni le sumes horas) y reprograma ESTE trigger con la herramienta
+update_trigger del MCP claude-code-remote:
+    trigger_id:   trig_01SWEY7vJV9ZEYvE9vjajD43
+    run_once_at:  <proximo_cierre_utc>
+    enabled:      true
+El "enabled: true" no es opcional: al dispararse, un trigger de una sola vez se
+deja deshabilitado solo, y sin reactivarlo la reprogramación no sirve de nada.
 
-PASO 1-bis — RESCATAR LO QUE QUEDÓ VARADO
-Ejecuta: bash scripts/ramas_varadas.sh
+Verifica que la respuesta traiga el run_once_at nuevo. Va PRIMERO, antes de
+consolidar, para que un fallo más adelante no se lleve puesto el mes siguiente.
+
+SI NO PUEDES REPROGRAMARTE (la herramienta no está disponible o devuelve error),
+NO sigas en silencio: escríbele a lgallegos@ispch.cl con asunto "ATENCIÓN: el
+cierre mensual dejó de estar programado", diciendo la fecha del próximo cierre y
+que hay que reprogramarlo a mano. Después continúa con el resto de los pasos.
+
+PASO 3 — ¿TOCA HOY?
+Del mismo JSON, si "es_hoy" es false, TERMINA aquí sin generar nada y sin
+escribirle a nadie: alguien disparó la rutina fuera de fecha. Dilo en una línea.
+
+PASO 4 — CONSOLIDAR
+Antes de nada: bash scripts/ramas_varadas.sh
 Lista los reportes que se generaron pero nunca llegaron a main porque el push se
 fue a la rama de la sesión. Si imprime algo, rescátalo ANTES de consolidar
-(git show <rama>:<ruta> > <ruta>, add, commit, push): si no, el consolidado del
-mes sale incompleto y nadie se entera.
+(git show <rama>:<ruta> > <ruta>, add, commit, push): si no, el consolidado sale
+incompleto y nadie se entera.
 
-PASO 2 — CONSOLIDAR
-Ejecuta: python3 scripts/consolidado.py --json
+Después: python3 scripts/consolidado.py --json
 Genera el Excel del mes en resultados/. NO lo edites a mano y NO completes las
 columnas de decisión: las llenan los tres en la reunión.
 Si "archivos_no_atribuidos" trae algo, hay Excel en revision/ cuyo nombre no
 permite deducir la categoría. Nómbralos textualmente en el correo: son casos que
 quedaron fuera del consolidado y alguien tiene que renombrarlos.
 
-PASO 3 — PERSISTIR EN GIT (OBLIGATORIO)
+PASO 5 — PERSISTIR EN GIT (OBLIGATORIO)
   1. git add resultados/
   2. git commit -m "consolidado mensual: <MM-YYYY>"
   3. for intento in 1 2 3; do
        git push origin main && break
        git pull --rebase origin main
      done
-  4. Comprueba que el archivo llegó de verdad a main — git status limpio no lo
-     prueba, porque el entorno puede redirigir el push a la rama de la sesión:
+  4. Comprueba que el archivo llegó DE VERDAD a main. Que git status quede limpio
+     no lo prueba: el entorno puede redirigir el push a la rama de la sesión y
+     devolver éxito igual. Eso pasó el 03-09-2026 y un reporte estuvo ocho días
+     perdido. La única comprobación válida es:
        git fetch origin main -q
        git cat-file -e origin/main:resultados/<archivo>.xlsx && echo "OK en main"
 Si el push falla, o si el archivo no está en main, dilo con el error textual y NO
-sigas al paso 4: sin push no hay enlace que enviar y el correo llegaría roto.
+sigas al paso 6: sin push no hay enlace que enviar y el correo llegaría roto.
 
-PASO 4 — ENVIAR A LOS TRES
-Un solo correo por Gmail, con los tres destinatarios que devolvió el paso 1
+PASO 6 — ENVIAR A LOS TRES
+Un solo correo por Gmail, con los tres destinatarios que devolvió el paso 2
 (campo "destinatarios") en el campo "para".
 
 NO ADJUNTES EL ARCHIVO. Manda el ENLACE de descarga:
@@ -309,14 +364,14 @@ El repositorio es público: no necesitan cuenta ni permisos.
       "¿Se procesa como denuncia?" y "Justificación de la decisión", y que el
       archivo completado se sube a la carpeta revision/.
 
-PASO 5 — REUNIÓN: CONFIRMAR HOY Y EXTENDER EL HORIZONTE
-Las reuniones están creadas en Google Calendar como eventos INDIVIDUALES, uno por
-mes, con título "Fiscalización web DM — revisión mensual de casos (<mes> <año>)",
+PASO 7 — REUNIÓN: CONFIRMAR HOY Y EXTENDER EL HORIZONTE
+Las reuniones están en Google Calendar como eventos INDIVIDUALES, uno por mes,
+título "Fiscalización web DM — revisión mensual de casos (<mes> <año>)",
 09:00-10:00 y los tres invitados.
 No son un evento recurrente a propósito: la recurrencia solo se puede expresar
 con RDATE (fechas explícitas), porque el martes de la última semana no coincide
-con el "cuarto martes del mes". Y Outlook no soporta RDATE: la
-invitación llega y no se puede agregar. Un evento por mes es lo único que abre
+con el "cuarto martes del mes" en 5 de cada 36 meses. Y Outlook no soporta RDATE:
+la invitación llega y no se puede agregar. Un evento por mes es lo único que abre
 bien en los dos calendarios.
 
   a) Busca el evento de HOY. Si existe, confirma que los tres siguen invitados.
@@ -328,8 +383,10 @@ bien en los dos calendarios.
   c) BUSCA ANTES DE CREAR, siempre. Duplicar la reunión es peor que no tenerla:
      nadie sabe a cuál de las dos ir. Si ya existe, no toques nada.
 
-PASO 6 — NOTIFICACIÓN
-Informa: periodo consolidado; casos totales y desglose por origen; las categorías
-con más casos; qué reportes quedaron sin revisar; confirmación del push; a
-quiénes se envió el correo; y si la reunión de hoy estaba agendada.
+PASO 8 — NOTIFICACIÓN
+Informa, y empieza por lo primero: para cuándo quedó reprogramado el trigger.
+Después: periodo consolidado; casos totales y desglose por origen; las categorías
+con más casos; reportes que quedaron sin revisar; reportes rescatados de ramas
+varadas, si hubo; confirmación de que el archivo está en main; a quiénes se envió
+el correo; y si la reunión de hoy estaba agendada.
 ```
