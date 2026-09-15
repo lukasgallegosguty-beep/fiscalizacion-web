@@ -1,0 +1,11 @@
+{
+  "categoria": "guantes-examinacion",
+  "nombre": "Guantes de examen médico",
+  "fecha": "2026-09-15",
+  "dia": "martes",
+  "slot": 2,
+  "archivo": "Fiscalizacion_Web_DM_guantes-examinacion_15-09-2026.xlsx",
+  "inspector": "mmedina@ispch.cl",
+  "hallazgos": 10,
+  "detectados": 10
+}
