@@ -668,9 +668,17 @@ def plan_consolidacion(fecha=None):
     reunion = datetime.combine(martes, time(*HORA_REUNION))
     esperados = bloques_del_mes(sem["anio"], sem["mes"])
 
+    # Los devueltos se buscan por ATRIBUCIÓN, no por nombre exacto: los
+    # inspectores renombran los archivos antes de subirlos y vuelven como
+    # "...desfibriladoresdea_08-09-2026 MMV.xlsx" o "..._26082026 EJMS.xlsx".
+    # Con os.path.exists() esta cobertura daba 0 revisados de 32 teniendo 28 en
+    # revision/, y el correo del cierre le habría dicho a los tres inspectores
+    # que no había revisado nadie.
+    devueltos = {(i["slug"], i["fecha"]) for i in archivos_revisados()[0]}
+
     for b in esperados:
         b["reporte"] = os.path.exists(os.path.join(DIR_RESULTADOS, b["archivo"]))
-        b["revisado"] = os.path.exists(os.path.join(DIR_REVISION, b["archivo"]))
+        b["revisado"] = (b["slug"], date.fromisoformat(b["fecha"])) in devueltos
 
     return {
         "periodo": sem["periodo"],
