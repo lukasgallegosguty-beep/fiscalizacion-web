@@ -251,6 +251,37 @@ def inspector_de(fecha):
     return insp
 
 
+ARCHIVO_FERIADOS = os.path.join(RAIZ, "feriados.json")
+
+
+def _cargar_feriados():
+    """Los feriados legales chilenos que caen en día hábil, desde feriados.json.
+
+    Si el archivo no está o está roto, devuelve {} en vez de reventar: quedarse
+    sin el calendario de feriados degrada el informe del cierre, pero no puede
+    voltear una corrida de fiscalización.
+    """
+    try:
+        with open(ARCHIVO_FERIADOS, encoding="utf-8") as fh:
+            return json.load(fh).get("feriados", {})
+    except (OSError, ValueError):
+        return {}
+
+
+FERIADOS = _cargar_feriados()
+
+
+def feriado_de(fecha):
+    """Nombre del feriado de esa fecha, o None si es un día hábil corriente.
+
+    La rutina fiscaliza igual en feriado —la búsqueda es automática y no le
+    cuesta a nadie—, pero el reporte queda excusado de revisión: no hay
+    inspector trabajando. El cierre mensual lo informa como feriado y no como
+    un pendiente, que es la diferencia entre "no correspondía" y "no cumplió".
+    """
+    return FERIADOS.get(fecha.isoformat())
+
+
 def lunes_cierre(anio, mes):
     """El lunes de la semana de cierre: la última del mes."""
     return semanas_del_mes(anio, mes)[-1]
@@ -679,6 +710,7 @@ def plan_consolidacion(fecha=None):
     for b in esperados:
         b["reporte"] = os.path.exists(os.path.join(DIR_RESULTADOS, b["archivo"]))
         b["revisado"] = (b["slug"], date.fromisoformat(b["fecha"])) in devueltos
+        b["feriado"] = feriado_de(date.fromisoformat(b["fecha"]))
 
     return {
         "periodo": sem["periodo"],
@@ -714,7 +746,14 @@ def plan_consolidacion(fecha=None):
         "bloques_esperados": esperados,
         "reportes_emitidos": sum(1 for b in esperados if b["reporte"]),
         "reportes_revisados": sum(1 for b in esperados if b["revisado"]),
-        "sin_revisar": [b["archivo"] for b in esperados if b["reporte"] and not b["revisado"]],
+        # Un reporte de feriado NO es un pendiente del inspector: se separa para
+        # que el correo del cierre no lo cuente como incumplimiento.
+        "sin_revisar": [b["archivo"] for b in esperados
+                        if b["reporte"] and not b["revisado"] and not b["feriado"]],
+        "excusados_feriado": [{"archivo": b["archivo"], "fecha": b["fecha_dmy"],
+                               "categoria": b["categoria"], "feriado": b["feriado"]}
+                              for b in esperados
+                              if b["reporte"] and not b["revisado"] and b["feriado"]],
         "sin_emitir": [b["archivo"] for b in esperados if not b["reporte"]],
     }
 

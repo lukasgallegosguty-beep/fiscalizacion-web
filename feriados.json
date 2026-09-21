@@ -1,0 +1,29 @@
+{
+  "_comentario": [
+    "Feriados legales de Chile que caen en día hábil. La rutina igual fiscaliza",
+    "esos días —buscar en la web no le cuesta a nadie— pero el reporte queda",
+    "EXCUSADO DE REVISIÓN: nadie está trabajando para revisarlo, y el cierre",
+    "mensual lo registra como feriado en vez de contarlo como un pendiente del",
+    "inspector. La diferencia importa: un pendiente es un incumplimiento, un",
+    "feriado no.",
+    "",
+    "MANTENER A MANO. Esta lista NO se calcula sola: los feriados movibles",
+    "(San Pedro y San Pablo, Encuentro de Dos Mundos) se corren al lunes según",
+    "la Ley 19.973, el Día de los Pueblos Indígenas sigue al solsticio, y cada",
+    "año se agregan feriados por elecciones o leyes puntuales. Antes de cada",
+    "año nuevo hay que contrastarla con el listado oficial de la Dirección del",
+    "Trabajo y completar el año siguiente. Un feriado que falte aquí aparecerá",
+    "como reporte sin revisar; uno de más excusará una revisión que sí tocaba.",
+    "",
+    "Solo hace falta anotar los que caen de lunes a viernes: los de fin de",
+    "semana no generan corrida.",
+    "",
+    "Formato: \"YYYY-MM-DD\": \"nombre del feriado\""
+  ],
+  "feriados": {
+    "2026-09-18": "Independencia Nacional",
+    "2026-10-12": "Encuentro de Dos Mundos",
+    "2026-12-08": "Inmaculada Concepción",
+    "2026-12-25": "Navidad"
+  }
+}

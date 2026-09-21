@@ -77,6 +77,26 @@ siempre la cuarta. Eso dejaba semanas muertas: la del 31-08-2026 quedó fuera de
 ciclo y el miércoles 02-09 las dos rutinas dispararon, salieron en el paso 1 y no
 fiscalizaron nada.
 
+## Feriados
+
+`feriados.json` lista los feriados legales chilenos que caen en día hábil.
+
+La rutina **fiscaliza igual** esos días: la búsqueda es automática y no le cuesta
+a nadie. Lo que cambia es la revisión — no hay inspector trabajando, así que el
+reporte queda **excusado**: el cierre mensual lo informa como feriado y no lo
+cuenta como pendiente. La diferencia importa, porque un pendiente es un
+incumplimiento del inspector y un feriado no.
+
+Pasó el **18-09-2026** (Independencia Nacional): las dos corridas de
+preservativos salieron y quedaron registradas sin revisión.
+
+**Hay que mantener el archivo a mano.** Los feriados no se calculan solos: los
+movibles se corren al lunes según la Ley 19.973, el Día de los Pueblos Indígenas
+sigue al solsticio y cada año aparecen feriados por elecciones. Antes de cada año
+nuevo hay que contrastar la lista con el listado oficial de la Dirección del
+Trabajo y agregar el año siguiente. Un feriado que falte sale como reporte sin
+revisar; uno de más excusa una revisión que sí correspondía.
+
 ## Calendario de la semana
 
 | Día | Bloque 1 | Bloque 2 |

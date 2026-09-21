@@ -7,5 +7,7 @@
   "archivo": "Fiscalizacion_Web_DM_preservativos-femeninos_18-09-2026.xlsx",
   "inspector": "mmedina@ispch.cl",
   "hallazgos": 0,
-  "detectados": 0
+  "detectados": 0,
+  "feriado": "Independencia Nacional",
+  "revision_excusada": "El 18-09-2026 fue feriado legal (Independencia Nacional). La corrida se ejecutó igual porque la búsqueda es automática, pero no había inspector trabajando: el reporte queda registrado sin revisión y no cuenta como pendiente de María Inés Medina."
 }

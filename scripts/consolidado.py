@@ -440,6 +440,10 @@ def generar(anio, mes, datos, plan, salida):
         casos_n = por_archivo.get(arch, 0) if arch else 0
         if not b["reporte"]:
             estado = "La corrida no llegó a generar el reporte."
+        elif not arch and b.get("feriado"):
+            # Feriado legal: no había inspector trabajando. No es un pendiente.
+            estado = (f"Feriado ({b['feriado']}): no correspondía revisión. "
+                      "El reporte queda en el repositorio sin aportar casos.")
         elif not arch:
             estado = "Reporte emitido pero AÚN NO devuelto por el inspector: no aporta casos a este consolidado."
         elif casos_n:
@@ -450,7 +454,7 @@ def generar(anio, mes, datos, plan, salida):
             "fecha": b["fecha_dmy"], "semana": f"Semana {b['semana_mes']}",
             "categoria": b["categoria"], "inspector": b["inspector"],
             "emitido": "Sí" if b["reporte"] else "No",
-            "revisado": "Sí" if arch else "No",
+            "revisado": "Sí" if arch else ("No (feriado)" if b.get("feriado") else "No"),
             "casos": casos_n, "estado": estado,
         })
 
@@ -507,6 +511,7 @@ def resumir(anio, mes, datos, plan, salida):
         "reportes_emitidos": plan["reportes_emitidos"],
         "reportes_esperados": len(plan["bloques_esperados"]),
         "pendientes_de_revision": plan["sin_revisar"],
+        "excusados_feriado": plan["excusados_feriado"],
         "no_emitidos": plan["sin_emitir"],
         "urls_duplicadas_omitidas": datos["duplicados"],
         "archivos_no_atribuidos": datos["no_atribuidos"],
@@ -549,6 +554,10 @@ def main():
           f"{resumen['discrepancias_sin_resolver']}")
     print(f"  Reportes del mes                 : {resumen['reportes_emitidos']}/{resumen['reportes_esperados']} emitidos, "
           f"{len(resumen['archivos_revisados'])} devueltos por inspectores")
+    if resumen["excusados_feriado"]:
+        print(f"  Excusados por feriado ({len(resumen['excusados_feriado'])}) — no correspondía revisión:")
+        for e in resumen["excusados_feriado"]:
+            print(f"    - {e['fecha']} {e['categoria']} ({e['feriado']})")
     if resumen["pendientes_de_revision"]:
         print(f"  PENDIENTES de revisión ({len(resumen['pendientes_de_revision'])}) — no aportan casos:")
         for a in resumen["pendientes_de_revision"]:

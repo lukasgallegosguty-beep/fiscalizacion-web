@@ -118,6 +118,13 @@ Anclar el cierre al final es lo que evita que sobre una semana sin trabajo.
 
 El inspector **no** se deduce ni se fija a mano: sale de `rotacion.py`.
 
+**Los feriados no detienen la búsqueda, solo la revisión.** `feriados.json` marca
+los feriados legales chilenos que caen en día hábil. Esos días la rutina fiscaliza
+normalmente —buscar es automático—, pero el reporte queda excusado de revisión
+porque no hay inspector trabajando, y el cierre mensual lo informa como feriado en
+vez de contarlo como pendiente. Es la diferencia entre "no correspondía" y "no
+cumplió". La lista se mantiene a mano: ningún cálculo la deriva sola.
+
 ### Paso 0-ter — Leer lo que revisaron los inspectores
 
 ```bash
