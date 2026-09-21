@@ -620,6 +620,11 @@ def construir_plan(fecha=None, slot=1):
         "reportes_revisados": previos["revisados"],
         "reportes_crudos": previos["crudos"],
         "inspector": inspector_de(fecha),
+        # Si hoy es feriado se fiscaliza igual —la búsqueda es automática— pero
+        # el inspector no está trabajando. El correo tiene que decírselo: que
+        # llegue un "revisa esto" un 18 de septiembre es una molestia evitable,
+        # y el cierre ya no lo cuenta como pendiente suyo.
+        "feriado": feriado_de(fecha),
         "objetivo_hallazgos": OBJETIVO_HALLAZGOS,
         "objetivo_no_registrado": OBJETIVO_NO_REGISTRADO,
         "objetivo_registrado": OBJETIVO_REGISTRADO,
@@ -652,6 +657,9 @@ def plan_semana(fecha=None):
         "periodo": sem["periodo"],
         "modo_semana": modo_de(fecha),
         "inspector": inspector_de(fecha),
+        "feriados": {d.isoformat(): feriado_de(d)
+                     for d in (lunes_de(fecha) + timedelta(days=i) for i in range(5))
+                     if feriado_de(d)},
         "bloques": filas if modo_de(fecha) == "busqueda" else [],
     }
 
@@ -847,6 +855,9 @@ def main():
                   f"(lunes {sem['lunes']})  ·  {quien}")
             if sem["modo_semana"] != "busqueda":
                 print(f"  {construir_plan(fecha, 1)['motivo']}")
+            for f, nombre in sorted(sem["feriados"].items()):
+                dia = DIAS[date.fromisoformat(f).weekday()]
+                print(f"  FERIADO {dia} {f}: {nombre}. Se fiscaliza, no se revisa.")
             for b in sem["bloques"]:
                 print(f"  {b['dia']:<10} bloque {b['slot']}  {b['categoria']}")
         return 0

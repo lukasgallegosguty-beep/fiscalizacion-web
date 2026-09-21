@@ -246,6 +246,11 @@ Con el push ya confirmado, escribe por Gmail al inspector que devolvió el paso 
 (campo inspector.email). No fijes el destinatario a mano: cambia según la semana
 del mes.
 
+Si el paso 1 devolvió "feriado" con un nombre, hoy es feriado legal: el correo va
+igual —para que el reporte esté en su bandeja cuando vuelva— pero ABRE el cuerpo
+diciendo que hoy es feriado (<nombre>), que la revisión no corre y que este
+reporte no se le va a contar como pendiente en el cierre del mes.
+
 NO ADJUNTES EL ARCHIVO. Manda un ENLACE de descarga.
 Adjuntarlo obliga a transcribir el binario en base64 y basta un carácter distinto
 para que el Excel llegue irrecuperable. Ya pasó el 24-08-2026: los dos reportes
