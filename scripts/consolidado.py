@@ -40,6 +40,7 @@ import os
 import re
 import sys
 from datetime import date
+from urllib.parse import urlparse
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -112,6 +113,76 @@ COLUMNAS_COBERTURA = [
 ]
 
 RE_URL = re.compile(r"https?://[^\s,;<>\"')\]]+")
+
+
+RE_ITEM = re.compile(r"(?m)^[ \t]*(?=\d{1,3}[.)\-]\s)")
+RE_NUM = re.compile(r"^\s*\d{1,3}[.)\-]\s*")
+RE_NARRACION = re.compile(
+    r"revisi[oó]n manual|se (efect[uú]a|encontr|encuentra|realiza|ejecuta|detect)"
+    r"|siguiente[s]? (hallazgo|producto|publicaci)|palabras clave", re.I)
+RE_RUIDO_SLUG = re.compile(
+    r"^(p|up|producto|product|item|articulo|MLC[A-Z0-9]+|[A-Z]{2,4}\d{4,})$", re.I)
+
+
+def _segmentar_observacion(obs):
+    """Parte la observación del inspector en ítems, uno por enlace.
+
+    Los inspectores escriben listas numeradas: "1. Preservativo Crown: <url>".
+    Antes se copiaba el bloque ENTERO en cada fila del consolidado: una nota de
+    25.663 caracteres se repetía 40 veces, una por enlace. Quien abría el Excel
+    en la reunión veía un muro de texto idéntico en cada caso y tenía que
+    buscar a mano cuál de los 63 ítems correspondía a esa fila.
+
+    Devuelve {url_limpia: texto_del_item}. Una URL que no caiga dentro de un
+    ítem reconocible no se pierde: queda fuera del mapa y quien llama le deja
+    el texto completo, que es el comportamiento anterior.
+    """
+    trozos = RE_ITEM.split(obs)
+    if len(trozos) < 2:
+        # Sin lista numerada: intentar por líneas, que es el otro formato que
+        # se ha visto. Si tampoco, devolver vacío y que decida quien llama.
+        trozos = [l for l in obs.splitlines() if RE_URL.search(l)]
+    mapa = {}
+    for t in trozos:
+        t = t.strip()
+        if not t:
+            continue
+        for u in RE_URL.findall(t):
+            mapa.setdefault(_limpiar_url(u), t)
+    return mapa
+
+
+def _nombre_del_item(texto, url):
+    """El nombre del producto que el inspector escribió antes del enlace.
+
+    "3. 50 Preservativos Lifestyles Snugger Fit: https://..." -> "50
+    Preservativos Lifestyles Snugger Fit". Si no escribió nombre, se deduce del
+    slug de la URL, que en Mercado Libre lleva el título del producto. Es peor
+    que el nombre del inspector pero infinitamente mejor que "(no consignado)":
+    permite reconocer el producto sin abrir el enlace.
+    """
+    if texto:
+        # Solo lo que está en LA MISMA LÍNEA del enlace. Es la señal estructural
+        # que separa un nombre de la narración: el inspector escribe
+        # "3. Preservativo Crown ultra delgados: <url>" en una línea, mientras
+        # que "Se efectúa revisión manual. Se encuentran los siguientes
+        # hallazgos:" encabeza un párrafo y los enlaces van más abajo.
+        linea = next((l for l in texto.splitlines() if url.split("#")[0][:60] in l), "")
+        antes = RE_URL.split(linea)[0]
+        antes = RE_NUM.sub("", antes).strip().rstrip(":").strip()
+        # Un nombre de producto es corto y no narra lo que hizo el inspector.
+        # La lista es chica a propósito: ante la duda gana el slug, que siempre
+        # dice algo del producto. Un nombre equivocado es peor que uno feo.
+        if 3 < len(antes) <= 120 and not RE_NARRACION.search(antes):
+            return antes
+    partes = [x for x in urlparse(url).path.split("/") if x]
+    for parte in partes:
+        if RE_RUIDO_SLUG.match(parte) or "-" not in parte:
+            continue
+        nombre = parte.replace("-", " ").strip()
+        if len(nombre) > 3:
+            return f"{nombre[0].upper()}{nombre[1:]} (deducido del enlace)"
+    return "(no consignado por el inspector)"
 
 
 def _limpiar_url(u):
@@ -248,6 +319,7 @@ def _leer(info):
             if not obs:
                 continue
             urls = [_limpiar_url(u) for u in RE_URL.findall(obs)]
+            items = _segmentar_observacion(obs)
             if not urls:
                 # Comentario sin enlaces: no hay producto que tabular. Se
                 # arrastra al resumen para que nadie lo dé por perdido.
@@ -257,9 +329,10 @@ def _leer(info):
                 })
                 continue
             for u in urls:
+                item = items.get(u, "")
                 casos.append({
                     "categoria": cat["nombre"], "fecha": fecha,
-                    "nombre_dm": "(no consignado por el inspector)",
+                    "nombre_dm": _nombre_del_item(item, u),
                     "url": u, "titulo": "", "oferente": donde,
                     "coincidencia": "", "producto_isp": "", "registro_isp": "",
                     "clasificacion": "POR VERIFICAR",
@@ -270,7 +343,9 @@ def _leer(info):
                         "antes de resolver la denuncia."
                     ),
                     "origen": ORIGEN_MANUAL, "inspector": quien,
-                    "obs_inspector": obs,
+                    # Solo el ítem de ESTE enlace. Si no se pudo segmentar, el
+                    # bloque completo: perder la nota es peor que repetirla.
+                    "obs_inspector": item or obs,
                     "denuncia": "", "justificacion": "",
                     "_slug": info["slug"], "_archivo": info["archivo"],
                 })

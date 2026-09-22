@@ -511,7 +511,17 @@ def archivos_revisados(slug=None, anio=None, mes=None):
         if slug and info["slug"] != slug:
             continue
         if anio and mes:
-            if info["fecha"] is None or (info["fecha"].year, info["fecha"].month) != (anio, mes):
+            # El mes del CICLO, no el del calendario. Una semana pertenece al
+            # mes de su miércoles, así que la del lunes 31-08-2026 es la semana
+            # 1 de septiembre. Filtrando por mes calendario, las revisiones de
+            # ese lunes quedaban fuera del consolidado de septiembre: la hoja de
+            # cobertura las daba por no devueltas y sus casos confirmados
+            # —infracciones que un inspector ya había validado— desaparecían del
+            # cierre sin que nadie lo notara.
+            if info["fecha"] is None:
+                continue
+            sem = semana_de(info["fecha"])
+            if (sem["anio"], sem["mes"]) != (anio, mes):
                 continue
         ok.append(info)
     ok.sort(key=lambda i: (i["fecha"] or date.min, i["archivo"]))
