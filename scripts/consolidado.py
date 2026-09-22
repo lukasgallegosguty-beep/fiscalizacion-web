@@ -39,6 +39,7 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 from datetime import date
 from urllib.parse import urlparse
 
@@ -78,6 +79,7 @@ COLUMNAS = [
     ("Clasificación", 18, "clasificacion"),
     ("Observaciones", 56, "observaciones"),
     ("Origen del caso", 34, "origen"),
+    ("Veces que el inspector lo listó", 14, "veces_listada"),
     ("Inspector que revisó", 22, "inspector"),
     ("Observaciones del inspector", 56, "obs_inspector"),
     ("¿Se procesa como denuncia?", 22, "denuncia"),
@@ -116,7 +118,7 @@ RE_URL = re.compile(r"https?://[^\s,;<>\"')\]]+")
 
 
 RE_ITEM = re.compile(r"(?m)^[ \t]*(?=\d{1,3}[.)\-]\s)")
-RE_NUM = re.compile(r"^\s*\d{1,3}[.)\-]\s*")
+RE_NUM = re.compile(r"^\s*\d{1,3}\s*[.):\-]\s*")
 RE_NARRACION = re.compile(
     r"revisi[oó]n manual|se (efect[uú]a|encontr|encuentra|realiza|ejecuta|detect)"
     r"|siguiente[s]? (hallazgo|producto|publicaci)|palabras clave", re.I)
@@ -319,6 +321,13 @@ def _leer(info):
             if not obs:
                 continue
             urls = [_limpiar_url(u) for u in RE_URL.findall(obs)]
+            # Cuántas veces listó el inspector cada enlace en ESTA nota. Pegar
+            # el mismo enlace varias veces es frecuente —la búsqueda de Mercado
+            # Libre lo devuelve en distintas posiciones— y significa que revisó
+            # de más. El consolidado deduplica igual, pero la cuenta se muestra:
+            # si no, el archivo esconde que seis filas del trabajo del inspector
+            # eran la misma publicación.
+            repeticiones = Counter(urls)
             items = _segmentar_observacion(obs)
             if not urls:
                 # Comentario sin enlaces: no hay producto que tabular. Se
@@ -343,6 +352,7 @@ def _leer(info):
                         "antes de resolver la denuncia."
                     ),
                     "origen": ORIGEN_MANUAL, "inspector": quien,
+                    "veces_listada": repeticiones[u],
                     # Solo el ítem de ESTE enlace. Si no se pudo segmentar, el
                     # bloque completo: perder la nota es peor que repetirla.
                     "obs_inspector": item or obs,
@@ -366,6 +376,16 @@ def recopilar(anio, mes):
         mkt_ignorado.extend(m)
         discrepancias.extend(x)
 
+    # Cuántas veces listó un inspector cada enlace, sumando TODAS las notas del
+    # mes. Se calcula antes de deduplicar y se aplica después: si un enlace que
+    # el inspector repitió seis veces resulta ser además un hallazgo confirmado,
+    # la fila que sobrevive es la confirmada, y sin esto perdería la cuenta.
+    # Se CUENTAN las apariciones, no se suman: la nota genera un caso por cada
+    # vez que el enlace aparece, y cada uno ya trae la cuenta de su nota. Sumar
+    # los seis casos de un enlace listado seis veces daba 36.
+    conteo_notas = Counter(_clave_url(c["url"]) for c in casos
+                           if c.get("origen") == ORIGEN_MANUAL)
+
     # Una misma oferta puede aparecer en dos reportes del mes. Gana la primera
     # (la más antigua), que es la que trae el cruce contra el listado ISP.
     vistas, unicos, duplicados = set(), [], 0
@@ -377,6 +397,11 @@ def recopilar(anio, mes):
         if k:
             vistas.add(k)
         unicos.append(c)
+
+    for c in unicos:
+        # Vacío, no cero, cuando la oferta no salió de una nota de marketplace:
+        # ahí la pregunta no aplica y un 0 se leería como "el inspector no la vio".
+        c["veces_listada"] = conteo_notas.get(_clave_url(c["url"]), "")
 
     unicos.sort(key=lambda c: (c["categoria"], c["clasificacion"] == "POR VERIFICAR", c["fecha"]))
     return {
