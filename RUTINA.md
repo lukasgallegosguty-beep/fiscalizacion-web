@@ -342,8 +342,12 @@ fue a la rama de la sesión. Si imprime algo, rescátalo ANTES de consolidar
 incompleto y nadie se entera.
 
 Después: python3 scripts/consolidado.py --json
-Genera el Excel del mes en resultados/. NO lo edites a mano y NO completes las
-columnas de decisión: las llenan los tres en la reunión.
+SIN ARGUMENTOS. El script resuelve solo el mes y la ruta de salida; pasarle --mes
+o --salida a mano es como se equivoca uno de periodo.
+Genera el Excel del mes en resultados/. NO lo edites a mano, NO le agregues ni
+quites columnas y NO completes las columnas de decisión: las llenan los tres en
+la reunión. El formato se ensayó y se aprobó el 22-09-2026; si algo del archivo
+te parece mejorable, dilo en la notificación en vez de cambiarlo.
 Si "archivos_no_atribuidos" trae algo, hay Excel en revision/ cuyo nombre no
 permite deducir la categoría. Nómbralos textualmente en el correo: son casos que
 quedaron fuera del consolidado y alguien tiene que renombrarlos.
@@ -380,11 +384,21 @@ El repositorio es público: no necesitan cuenta ni permisos.
       últimas van marcadas POR VERIFICAR porque no pasaron por el cruce contra
       el listado ISP y hay que comprobarlas antes de resolver.
     - Desglose por categoría.
-    - Qué reportes del mes quedaron SIN REVISAR y por lo tanto no aportaron
-      casos (campo "pendientes_de_revision"). Esto va sí o sí: es la diferencia
-      entre "no hubo hallazgos" y "no alcanzamos a revisarlo".
+    - LA COBERTURA COMPLETA, con sus tres estados separados, porque si no las
+      cuentas no cuadran y parece que alguien no hizo su trabajo:
+        * cuántos reportes se emitieron de los esperados;
+        * cuántos quedaron SIN REVISAR (campo "pendientes_de_revision"). Esto va
+          sí o sí: es la diferencia entre "no hubo hallazgos" y "no alcanzamos a
+          revisarlo";
+        * cuántos NO correspondía revisar por feriado (campo
+          "excusados_feriado"), nombrando la fecha y el feriado. Un feriado no
+          es un incumplimiento y el correo tiene que decirlo con esas palabras.
     - Si hay discrepancias sin resolver, di cuántas y que están en una hoja
       aparte, sin proponerse como denuncia.
+    - Si la columna "Veces que el inspector lo listó" trae valores mayores que 1,
+      menciónalo: son publicaciones que el inspector anotó varias veces en su
+      nota de marketplace. El consolidado ya las dejó en una sola fila; se avisa
+      para que en la reunión no se revisen de nuevo una por una.
     - Cierra recordando que en la reunión de las 09:00 hay que completar
       "¿Se procesa como denuncia?" y "Justificación de la decisión", y que el
       archivo completado se sube a la carpeta revision/.
@@ -405,6 +419,13 @@ bien en los dos calendarios.
      falta su evento, créalo. La fecha exacta la da:
        python3 scripts/rotacion.py --consolidacion --fecha <YYYY-MM-DD> --json
      (campo "fecha"). NO la calcules como "cuarto martes": no es lo mismo.
+     Dos cosas de ese comando que NO son errores: sale con código 3 cuando la
+     fecha consultada no es un día de cierre (lo normal al mirar hacia adelante)
+     e imprime el JSON igual, así que lee la salida y no lo trates como fallo; y
+     devuelve el cierre del mes del CICLO, que no siempre es el del calendario
+     —una semana pertenece al mes de su miércoles—, así que consultar el
+     31-08-2027 responde con el cierre de septiembre de 2027. Guíate por el
+     campo "periodo" que viene en la misma respuesta.
   c) BUSCA ANTES DE CREAR, siempre. Duplicar la reunión es peor que no tenerla:
      nadie sabe a cuál de las dos ir. Si ya existe, no toques nada.
 
