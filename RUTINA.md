@@ -45,6 +45,19 @@ El consolidado ya no: `rotacion.py` resuelve el huso con `zoneinfo` y entrega el
 instante UTC ya convertido, de modo que la reprogramación mensual cruza los
 cambios de hora sin que nadie toque nada.
 
+**Los prompts de los bloques 1 y 2 NO se pueden actualizar desde una sesión.**
+Se crearon por la API, así que `update_trigger` los rechaza y solo el dueño puede
+editarlos en https://claude.ai/code/routines/<trigger_id>. Consecuencia práctica:
+**este archivo puede adelantarse a lo que las rutinas ejecutan de verdad.** El
+25-09-2026 llevaban tres arreglos de retraso —el motivo de la semana de cierre en
+el paso 1, la verificación del push contra `origin/main` y la nota de feriado en
+el paso 6— porque se documentaron aquí y nunca se pegaron allá.
+
+Cuando cambies algo de esos dos prompts, pégalo en las dos rutinas el mismo día.
+Si no, el repositorio dice una cosa y el sistema hace otra, que es peor que no
+haber documentado nada. El consolidado no tiene este problema: se creó desde una
+sesión y se actualiza solo.
+
 **Sobre los conectores.** Deja solo Gmail. Durante una corrida la rutina puede
 usar cualquier herramienta de un conector incluido, escrituras incluidas, sin
 pedir permiso.
@@ -157,9 +170,15 @@ perdería igual.
 PASO 1 — QUÉ TOCA HOY
 Ejecuta: python3 scripts/rotacion.py --slot 1 --json
 Si devuelve "habil": false, TERMINA sin generar nada y sin escribirle a nadie.
-Solo hay dos motivos posibles: fin de semana, o la ÚLTIMA semana del mes, que
-está reservada al análisis mensual y no se fiscaliza. El campo "motivo" dice cuál
-es; repítelo en la notificación y no hagas nada más.
+Sale con código 3 en ese caso: NO es un error, es el filtro funcionando.
+Solo hay dos motivos posibles, y el campo "motivo" dice cuál:
+  - fin de semana;
+  - la ÚLTIMA semana del mes, reservada al análisis mensual. Esa semana el
+    trigger igual se dispara todos los días hábiles, porque cron no sabe decir
+    "salvo la última semana", y el filtro real es este paso. Despertar un lunes
+    y que no haya que fiscalizar es lo esperado, no una falla.
+Repite el motivo en la notificación, en una línea, y no hagas nada más: no
+busques, no generes Excel, no escribas correos.
 Usa la categoría, el Excel ISP, la hoja, la ruta de salida y el inspector que
 devuelve. No deduzcas la categoría por tu cuenta.
 
