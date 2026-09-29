@@ -504,6 +504,12 @@ def archivos_revisados(slug=None, anio=None, mes=None):
     for ruta in sorted(glob.glob(os.path.join(DIR_REVISION, "*.xlsx"))):
         if os.path.basename(ruta).startswith("~$"):
             continue  # archivo temporal de Excel
+        if os.path.basename(ruta).lower().startswith("consolidado_mensual"):
+            # El consolidado completado en la reunión también se sube aquí, pero
+            # no es la revisión de un inspector: es el acta de decisiones del mes.
+            # Sin esta excepción caía en "no atribuidos" y el cierre siguiente
+            # pedía renombrar un archivo que estaba bien nombrado.
+            continue
         info = atribuir_archivo(ruta)
         if info is None:
             fallidos.append(os.path.basename(ruta))
