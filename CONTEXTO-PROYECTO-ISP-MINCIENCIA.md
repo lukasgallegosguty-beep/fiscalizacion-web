@@ -346,9 +346,19 @@ que reaparecen:
 - **Calendarios y husos horarios.** El cambio de hora de Chile desfasa las
   programaciones en UTC. Los feriados legales no se derivan de ningún cálculo y
   hay que mantenerlos a mano.
-- **Fragilidad de la programación.** Ninguna expresión cron estándar puede decir
-  «el martes de la última semana del mes». Hubo que reemplazarla por un disparo
-  único que se reprograma a sí mismo, con su propia ruta de fallo.
+- **Fragilidad de la programación, y un fallo que llegó a la reunión.** Ninguna
+  expresión cron estándar puede decir «el martes de la última semana del mes».
+  Se reemplazó por un disparo único que se reprogramaba a sí mismo, y **falló el
+  primer día que tenía que trabajar**: el 29-09-2026 la rutina se disparó a la
+  hora, abortó a los 39 segundos por no tener acceso al repositorio y la
+  plataforma la registró como exitosa. Los tres inspectores llegaron a la
+  reunión mensual de decisión sin el consolidado; se generó a mano cinco horas
+  después. El diseño dependía de dos herramientas que no existen dentro de una
+  rutina automática, y ninguna prueba previa lo detectó porque se ensayaron los
+  scripts, no el entorno donde corren. Hoy se dispara todos los martes y
+  descarta los que no son de cierre. **Para una solución independiente:** la
+  orquestación tiene que ser propia y observable, y el éxito de una tarea no
+  puede medirse por que el proceso terminó, sino por que el entregable existe.
 
 ### Límites operacionales
 

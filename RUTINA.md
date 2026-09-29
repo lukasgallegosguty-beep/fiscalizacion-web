@@ -8,7 +8,7 @@ primera no arrastre a la segunda) y una cierra el mes.
 | Opción | Bloque 1 | Bloque 2 | Consolidado mensual |
 |---|---|---|---|
 | Nombre | Fiscalización web — bloque 1 | Fiscalización web — bloque 2 | Fiscalización web — consolidado mensual |
-| Frecuencia | Lun–Vie 07:30 (hora Chile) | Lun–Vie 07:30 | **Una vez al mes**, martes de cierre 07:30 |
+| Frecuencia | Lun–Vie 07:30 (hora Chile) | Lun–Vie 07:30 | **Todos los martes** 10:30 UTC; trabaja solo el de cierre |
 | Repositorio | `lukasgallegosguty-beep/fiscalizacion-web` | igual | igual |
 | Conectores | Gmail | Gmail | Gmail **y Google Calendar** |
 | Rama de salida | ninguna: la fija el prompt (`main`) | igual | igual |
@@ -17,21 +17,41 @@ Los dos bloques diarios se disparan más veces de las que trabajan, y eso es a
 propósito: cortan en el paso 1 durante la semana de cierre. El filtro vive en
 `scripts/rotacion.py`, no en el cron.
 
-El consolidado es distinto: **no tiene cron**. Corre exactamente una vez al mes
-porque es un trigger de disparo único que, antes de trabajar, se reprograma para
-el cierre siguiente con el campo `proximo_cierre_utc` que entrega
-`rotacion.py --consolidacion --json`.
+El consolidado también se dispara de más: **todos los martes**, con cron
+`30 10 * * 2`, y trabaja solo el martes de la última semana del mes. Los demás
+martes corta en el paso 1 en una línea, sin escribirle a nadie.
 
-Hasta el 14-09-2026 tenía cron `30 10 * * 2` y se despertaba los cuatro o cinco
-martes del mes para cortar en el paso 1. Cron no sabe decir "el martes de la
-última semana", y acotar los días tampoco sirve: **este scheduler combina el
-día-del-mes con el día-de-semana usando OR, no AND** (comprobado: con
-`30 10 22-30 * 2` el próximo disparo salía el martes 15, que no está en el rango).
-Un cron `22-30` habría pasado de 4 disparos al mes a 9. Por eso el disparo único.
+**Por qué no un disparo único que se reprograme solo.** Así estuvo del 14 al 29
+de septiembre de 2026, y falló el primer día que tenía que trabajar. El 29-09 la
+rutina se disparó puntual a las 07:31, abortó a los 39 segundos y la plataforma
+la marcó «exitosa»: no generó el consolidado, no mandó el correo y no se
+reprogramó, así que quedó muerta también para octubre. El equipo llegó a la
+reunión de las 09:00 sin el archivo; se generó a mano a las 14:15.
 
-La contrapartida es que si la reprogramación falla, la rutina no vuelve a
-dispararse. Por eso el paso 2 va **primero**, antes de consolidar, y si no puede
-reprogramarse manda un correo de alerta en vez de morir callada.
+Dos supuestos del diseño eran falsos y ninguno se había probado en una rutina
+real:
+
+1. **Que el disparador traía el repositorio.** No lo traía. Los triggers creados
+   desde una sesión (`create_trigger`) nacen sin repositorio adjunto; los bloques
+   1 y 2, creados desde la interfaz, sí lo tienen. El prompt intentaba adjuntarlo
+   con `add_repo`, pero esa herramienta no existe dentro de una rutina
+   disparada.
+2. **Que la rutina podía reprogramarse con `update_trigger`.** Tampoco existe ahí.
+   Y aunque existiera, la reprogramación iba después del clonado: sin repositorio
+   no se llegaba a ella, y un solo fallo mataba este mes y todos los siguientes.
+
+El cron semanal no depende de nada de eso. Cuesta tres o cuatro corridas vacías
+al mes —el disparador tiene las notificaciones apagadas— y a cambio no tiene una
+cadena que se pueda cortar.
+
+**El repositorio se adjunta a mano, en la interfaz.** Sin él, la rutina manda una
+ALERTA a lgallegos@ispch.cl cada martes hasta que alguien lo adjunte:
+https://claude.ai/code/routines/trig_01SWEY7vJV9ZEYvE9vjajD43
+
+**Nada falla en silencio.** El prompt del cierre tiene una regla general: cada
+punto donde puede fallar un día de cierre —repositorio, preflight, script, push,
+correo— termina en un correo de ALERTA, no en una sesión «exitosa» que no hizo
+nada. Un correo de más es barato; un cierre perdido no.
 
 **Sobre el horario y el cambio de hora.** Los cron se evalúan en UTC, y Chile
 cambia de huso dos veces al año: 07:30 local son las **11:30 UTC** en invierno
@@ -41,9 +61,10 @@ tocar nada. Si en cambio pones un cron a mano, hay que corregirlo en cada cambio
 de hora, o la rutina se corre una hora. Los bloques 1 y 2 tienen cron a mano, así
 que van en esa lista de revisión dos veces al año.
 
-El consolidado ya no: `rotacion.py` resuelve el huso con `zoneinfo` y entrega el
-instante UTC ya convertido, de modo que la reprogramación mensual cruza los
-cambios de hora sin que nadie toque nada.
+El consolidado también tiene cron fijo, así que se corre una hora en invierno:
+10:30 UTC son las 07:30 de Chile en verano y las 06:30 en invierno. Se dejó así a
+propósito —en ambos casos llega antes de la reunión de las 09:00— para no tener
+que tocarlo dos veces al año.
 
 **Los prompts de los bloques 1 y 2 NO se pueden actualizar desde una sesión.**
 Se crearon por la API, así que `update_trigger` los rechaza y solo el dueño puede
@@ -55,8 +76,8 @@ el paso 6— porque se documentaron aquí y nunca se pegaron allá.
 
 Cuando cambies algo de esos dos prompts, pégalo en las dos rutinas el mismo día.
 Si no, el repositorio dice una cosa y el sistema hace otra, que es peor que no
-haber documentado nada. El consolidado no tiene este problema: se creó desde una
-sesión y se actualiza solo.
+haber documentado nada. El consolidado sí se puede editar desde una sesión (se creó
+con `create_trigger`), pero a cambio nació sin repositorio: ver arriba.
 
 **Sobre los conectores.** Deja solo Gmail. Durante una corrida la rutina puede
 usar cualquier herramienta de un conector incluido, escrituras incluidas, sin
@@ -301,66 +322,54 @@ bloqueados; confirmación del push; y a quién se envió el correo.
 
 ## Prompt — consolidado mensual
 
-Rutina aparte, **una vez al mes** a las 07:30 del martes de cierre, con los
-conectores **Gmail y Google Calendar**. No lleva cron: es un trigger de disparo
-único (`run_once_at`) que se reprograma a sí mismo en su paso 2.
+Rutina aparte, **todos los martes** a las 10:30 UTC, con los conectores **Gmail
+y Google Calendar** y el **repositorio adjunto**. Trabaja solo el martes de
+cierre; los demás corta en el paso 1.
 
 ```
 Ejecuta el cierre mensual de la fiscalización web de DM.
 
-Este trigger es de DISPARO ÚNICO y se reprograma solo. No es semanal: corre una
-vez al mes, el martes de la última semana. Cron no puede expresar esa fecha —
-"el martes de la última semana" no es "el cuarto martes", y en este scheduler el
-día-del-mes y el día-de-semana se combinan con OR, no con AND, así que acotar
-los días solo agrega disparos. Por eso el paso 2 es obligatorio: si no se
-reprograma, no vuelve a correr nunca.
+Este trigger se dispara TODOS LOS MARTES a las 10:30 UTC (07:30 en Chile en
+verano, 06:30 en invierno). Solo uno de cada cuatro o cinco es día de cierre: el
+martes de la última semana del mes. Los demás martes terminas en el paso 1, en
+una línea y sin escribirle a nadie. Eso no es una falla: cron no sabe expresar
+"el martes de la última semana" y el filtro real vive en el paso 1.
 
-PASO 0 — TENER EL REPOSITORIO
-Este trigger no trae el repositorio clonado. Compruébalo y, si falta, tráelo:
-  ls scripts/rotacion.py 2>/dev/null || {
-    # adjuntar con permiso de escritura y clonar
-    #   herramienta add_repo del MCP claude-code-remote,
-    #   owner "lukasgallegosguty-beep", repo "fiscalizacion-web", access "push"
-    # y después el git clone que devuelva, entrando al directorio clonado.
-  }
-Trabaja siempre desde la raíz del repositorio. Si no lo puedes clonar, ABORTA y
-notifica el error textual: sin repositorio no hay consolidado.
+REGLA GENERAL: NADA FALLA EN SILENCIO. El 29-09-2026 esta rutina se disparó,
+abortó a los 39 segundos por no tener el repositorio y terminó "exitosa" sin
+avisarle a nadie: el equipo llegó a la reunión mensual sin el archivo. Por eso,
+cada vez que abajo diga ALERTA, escribe por Gmail a lgallegos@ispch.cl con asunto
+"ALERTA — cierre mensual fiscalización web DM" y en el cuerpo: qué paso falló, el
+error textual y la fecha de hoy. Después detente. Nunca termines un día de cierre
+sin haber enviado el consolidado o una ALERTA.
 
-PASO 1 — PREFLIGHT
-Ejecuta: bash scripts/preflight.sh main
-Si sale distinto de 0, ABORTA y notifica el error textual que imprimió.
+PASO 0 — EL REPOSITORIO
+Ejecuta: ls scripts/rotacion.py
+Si no existe, el trigger perdió el repositorio adjunto. ALERTA con este texto:
+"El disparador del consolidado no tiene el repositorio adjunto. Hay que
+adjuntarlo en https://claude.ai/code/routines/trig_01SWEY7vJV9ZEYvE9vjajD43".
+Esta alerta sale aunque no sepas si hoy es día de cierre: sin repositorio no se
+puede saber, y es preferible un correo de más a un cierre perdido.
 
-PASO 2 — REPROGRAMARTE (ANTES DE TRABAJAR, NO DESPUÉS)
+PASO 1 — ¿TOCA HOY?
 Ejecuta: python3 scripts/rotacion.py --consolidacion --json
-Toma el campo "proximo_cierre_utc" (ya viene con el huso chileno resuelto, no lo
-recalcules ni le sumes horas) y reprograma ESTE trigger con la herramienta
-update_trigger del MCP claude-code-remote:
-    trigger_id:   trig_01SWEY7vJV9ZEYvE9vjajD43
-    run_once_at:  <proximo_cierre_utc>
-    enabled:      true
-El "enabled: true" no es opcional: al dispararse, un trigger de una sola vez se
-deja deshabilitado solo, y sin reactivarlo la reprogramación no sirve de nada.
+Si "es_hoy" es false, TERMINA aquí: una línea en la notificación diciendo la
+fecha del próximo cierre (campo "fecha") y nada más. No escribas correos. Sale
+con código 3 en ese caso y NO es un error: lee el JSON igual.
+Si "es_hoy" es true, sigue. Desde aquí, cualquier fallo es ALERTA.
 
-Verifica que la respuesta traiga el run_once_at nuevo. Va PRIMERO, antes de
-consolidar, para que un fallo más adelante no se lleve puesto el mes siguiente.
+PASO 2 — PREFLIGHT
+Ejecuta: bash scripts/preflight.sh main
+Si sale distinto de 0: ALERTA con el diagnóstico que imprimió.
 
-SI NO PUEDES REPROGRAMARTE (la herramienta no está disponible o devuelve error),
-NO sigas en silencio: escríbele a lgallegos@ispch.cl con asunto "ATENCIÓN: el
-cierre mensual dejó de estar programado", diciendo la fecha del próximo cierre y
-que hay que reprogramarlo a mano. Después continúa con el resto de los pasos.
-
-PASO 3 — ¿TOCA HOY?
-Del mismo JSON, si "es_hoy" es false, TERMINA aquí sin generar nada y sin
-escribirle a nadie: alguien disparó la rutina fuera de fecha. Dilo en una línea.
+PASO 3 — RESCATAR LO VARADO
+Ejecuta: bash scripts/ramas_varadas.sh
+Lista los reportes que se generaron pero nunca llegaron a main. Si imprime algo,
+rescátalo ANTES de consolidar (git show <rama>:<ruta> > <ruta>, add, commit,
+push): si no, el consolidado sale incompleto y nadie se entera.
 
 PASO 4 — CONSOLIDAR
-Antes de nada: bash scripts/ramas_varadas.sh
-Lista los reportes que se generaron pero nunca llegaron a main porque el push se
-fue a la rama de la sesión. Si imprime algo, rescátalo ANTES de consolidar
-(git show <rama>:<ruta> > <ruta>, add, commit, push): si no, el consolidado sale
-incompleto y nadie se entera.
-
-Después: python3 scripts/consolidado.py --json
+Ejecuta: python3 scripts/consolidado.py --json
 SIN ARGUMENTOS. El script resuelve solo el mes y la ruta de salida; pasarle --mes
 o --salida a mano es como se equivoca uno de periodo.
 Genera el Excel del mes en resultados/. NO lo edites a mano, NO le agregues ni
@@ -370,8 +379,9 @@ te parece mejorable, dilo en la notificación en vez de cambiarlo.
 Si "archivos_no_atribuidos" trae algo, hay Excel en revision/ cuyo nombre no
 permite deducir la categoría. Nómbralos textualmente en el correo: son casos que
 quedaron fuera del consolidado y alguien tiene que renombrarlos.
+Si el script falla: ALERTA con el error.
 
-PASO 5 — PERSISTIR EN GIT (OBLIGATORIO)
+PASO 5 — PERSISTIR EN GIT
   1. git add resultados/
   2. git commit -m "consolidado mensual: <MM-YYYY>"
   3. for intento in 1 2 3; do
@@ -384,12 +394,13 @@ PASO 5 — PERSISTIR EN GIT (OBLIGATORIO)
      perdido. La única comprobación válida es:
        git fetch origin main -q
        git cat-file -e origin/main:resultados/<archivo>.xlsx && echo "OK en main"
-Si el push falla, o si el archivo no está en main, dilo con el error textual y NO
-sigas al paso 6: sin push no hay enlace que enviar y el correo llegaría roto.
+Si el push falla o el archivo no está en main: ALERTA, indicando en qué rama
+quedó (git branch -r --contains HEAD). No sigas al paso 6: sin el archivo en main
+el enlace del correo llegaría roto.
 
 PASO 6 — ENVIAR A LOS TRES
-Un solo correo por Gmail, con los tres destinatarios que devolvió el paso 2
-(campo "destinatarios") en el campo "para".
+Un solo correo por Gmail, con los tres destinatarios del paso 1 (campo
+"destinatarios") en el campo "para".
 
 NO ADJUNTES EL ARCHIVO. Manda el ENLACE de descarga:
   https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<archivo>.xlsx
@@ -421,6 +432,7 @@ El repositorio es público: no necesitan cuenta ni permisos.
     - Cierra recordando que en la reunión de las 09:00 hay que completar
       "¿Se procesa como denuncia?" y "Justificación de la decisión", y que el
       archivo completado se sube a la carpeta revision/.
+Si el envío falla: ALERTA (el archivo ya está en main; di el enlace en la alerta).
 
 PASO 7 — REUNIÓN: CONFIRMAR HOY Y EXTENDER EL HORIZONTE
 Las reuniones están en Google Calendar como eventos INDIVIDUALES, uno por mes,
@@ -447,11 +459,13 @@ bien en los dos calendarios.
      campo "periodo" que viene en la misma respuesta.
   c) BUSCA ANTES DE CREAR, siempre. Duplicar la reunión es peor que no tenerla:
      nadie sabe a cuál de las dos ir. Si ya existe, no toques nada.
+Si Calendar no está disponible, dilo en la notificación; no es ALERTA, porque el
+consolidado ya salió.
 
 PASO 8 — NOTIFICACIÓN
-Informa, y empieza por lo primero: para cuándo quedó reprogramado el trigger.
-Después: periodo consolidado; casos totales y desglose por origen; las categorías
-con más casos; reportes que quedaron sin revisar; reportes rescatados de ramas
-varadas, si hubo; confirmación de que el archivo está en main; a quiénes se envió
-el correo; y si la reunión de hoy estaba agendada.
+Periodo consolidado; casos totales y desglose por origen; las categorías con más
+casos; reportes sin revisar y reportes excusados por feriado, como dos cifras
+distintas; reportes rescatados de ramas varadas, si hubo; confirmación de que el
+archivo está en main; a quiénes se envió el correo; y si la reunión de hoy estaba
+agendada.
 ```

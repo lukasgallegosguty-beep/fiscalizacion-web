@@ -264,14 +264,23 @@ Esa semana no se busca. El martes a las 07:30 corre `scripts/consolidado.py`, qu
 junta en un solo Excel todo lo que el mes dejó en pie, y a las 09:00 los tres
 deciden qué se procesa como denuncia.
 
-**Cómo se programa.** La rutina del cierre no tiene cron: es un trigger de
-disparo único que se reprograma a sí mismo antes de trabajar, con el campo
-`proximo_cierre_utc` de `rotacion.py --consolidacion --json` (que ya viene con el
-huso chileno resuelto). No hay cron de 5 campos que diga "el martes de la última
-semana": no es "el cuarto martes", y este scheduler combina día-del-mes con
-día-de-semana usando **OR**, así que acotar los días multiplica los disparos en
-vez de reducirlos. Con `30 10 * * 2` la rutina despertaba cuatro o cinco veces al
-mes para cortar de inmediato; ahora despierta una.
+**Cómo se programa.** La rutina del cierre se dispara todos los martes (cron
+`30 10 * * 2`) y trabaja solo si `rotacion.py --consolidacion --json` devuelve
+`es_hoy: true`; los demás martes corta en una línea. No hay cron de 5 campos que
+diga "el martes de la última semana", y este scheduler combina día-del-mes con
+día-de-semana usando **OR**, así que acotar los días multiplica los disparos.
+
+Entre el 14 y el 29 de septiembre de 2026 fue un disparo único que se
+reprogramaba solo. Falló el primer día que tenía que trabajar: el disparador no
+traía el repositorio, `add_repo` y `update_trigger` no existen dentro de una
+rutina disparada, abortó a los 39 segundos y la plataforma lo marcó «exitoso».
+No hubo consolidado, ni correo, ni reprogramación. De ahí dos reglas:
+
+- **Ningún diseño de una rutina puede depender de herramientas que no se hayan
+  visto funcionar dentro de una rutina real.** Probar el script no prueba el
+  entorno donde corre.
+- **Un día de cierre termina con el consolidado enviado o con una ALERTA por
+  correo.** Nunca con una sesión «exitosa» que no hizo nada.
 
 Dos reglas que gobiernan qué entra a ese archivo:
 

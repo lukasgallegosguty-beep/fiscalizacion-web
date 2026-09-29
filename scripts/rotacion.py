@@ -706,9 +706,10 @@ def plan_consolidacion(fecha=None):
     """Plan del cierre mensual: qué mes se consolida, cuándo y con qué insumos.
 
     `es_hoy` es lo que debe mirar la rutina: sale True solo el martes de la
-    última semana del mes. El trigger se dispara UNA vez al mes, en la fecha
-    exacta, y se reprograma con `proximo_cierre_utc` antes de trabajar. `es_hoy`
-    queda igual como red de seguridad por si alguien lo dispara a mano.
+    última semana del mes. El trigger se dispara todos los martes y este campo
+    es el filtro real. (Del 14 al 29-09-2026 fue un disparo único que se
+    reprogramaba con `proximo_cierre_utc`; falló porque la rutina disparada no
+    tiene las herramientas para reprogramarse. Ver RUTINA.md.)
     """
     fecha = fecha or date.today()
     sem = semana_de(fecha)
@@ -743,10 +744,9 @@ def plan_consolidacion(fecha=None):
         "fecha_dmy": martes.strftime("%d-%m-%Y"),
         "hora_envio": HORA_CONSOLIDACION,
         "instante_utc": instante_utc(martes, HORA_CONSOLIDACION),
-        # Con esto la rutina se reprograma sola: el trigger es de disparo único
-        # porque cron no sabe decir "el martes de la última semana" (y en este
-        # scheduler día-del-mes y día-de-semana se combinan con OR, no con AND,
-        # así que acotar los días solo agrega disparos).
+        # Informativos. La rutina ya NO se reprograma con esto (ver el docstring):
+        # sirven para decir en la notificación cuándo es el próximo cierre, y
+        # para rearmar a mano si alguna vez vuelve a usarse un disparo único.
         "proximo_cierre": proximo_siguiente.isoformat(),
         "proximo_cierre_dmy": proximo_siguiente.strftime("%d-%m-%Y"),
         "proximo_cierre_utc": instante_utc(proximo_siguiente, HORA_CONSOLIDACION),
