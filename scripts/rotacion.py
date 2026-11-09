@@ -846,6 +846,47 @@ def plan_consolidacion(fecha=None):
     }
 
 
+# Septiembre de 2026 es el primer mes con ciclo completo: lo de agosto se revisó
+# antes de que existiera el cierre mensual.
+PRIMER_MES_CON_CICLO = (2026, 9)
+
+
+def pendientes(fecha=None, desde=PRIMER_MES_CON_CICLO):
+    """Los reportes emitidos hasta `fecha` que todavía no tienen su revisión.
+
+    Mes por mes, del ciclo `desde` al de `fecha`, con la misma cobertura que usa
+    el cierre (plan_consolidacion): un reporte está pendiente si está en
+    resultados/, no tiene revisión atribuida en revision/ y su día no fue
+    feriado. Se agrupan por el inspector que recibió el correo, que es quien
+    tiene que devolverlo.
+    """
+    fecha = fecha or date.today()
+    sem = semana_de(fecha)
+    por_mes, por_inspector = {}, {}
+    anio, mes = desde
+    while (anio, mes) <= (sem["anio"], sem["mes"]):
+        plan = plan_consolidacion(martes_consolidacion(anio, mes))
+        faltan = [b for b in plan["bloques_esperados"]
+                  if date.fromisoformat(b["fecha"]) <= fecha
+                  and b["reporte"] and not b["revisado"] and not b["feriado"]]
+        por_mes[plan["periodo"]] = len(faltan)
+        for b in faltan:
+            b["periodo"] = plan["periodo"]
+            por_inspector.setdefault(b["inspector"], []).append(b)
+        anio, mes = (anio + 1, 1) if mes == 12 else (anio, mes + 1)
+    orden = [i["email"] for i in INSPECTORES]
+    nombres = {i["email"]: i["nombre"] for i in INSPECTORES}
+    return {
+        "fecha": fecha.isoformat(),
+        "total": sum(por_mes.values()),
+        "por_mes": por_mes,
+        "por_inspector": [
+            {"email": e, "nombre": nombres.get(e, e), "pendientes": por_inspector[e]}
+            for e in sorted(por_inspector, key=lambda e: orden.index(e) if e in orden else len(orden))
+        ],
+    }
+
+
 def avanzar(fecha=None, slot=1, hallazgos=None, notas="", detectados=None):
     """Registra el bloque como procesado. Llamar SOLO tras un push exitoso.
 
@@ -915,6 +956,8 @@ def main():
     ap.add_argument("--avanzar", action="store_true", help="registrar como procesado")
     ap.add_argument("--semana", action="store_true", help="plan de la semana")
     ap.add_argument("--estado", action="store_true", help="cobertura histórica")
+    ap.add_argument("--pendientes", action="store_true",
+                    help="revisiones que faltan devolver, por inspector")
     ap.add_argument("--consolidacion", action="store_true",
                     help="plan del cierre mensual (última semana del mes)")
     ap.add_argument("--hallazgos", type=int, default=None, help="n.º de hallazgos incluidos")
@@ -969,6 +1012,22 @@ def main():
                 print(f"    - {a}")
         print(f"Salida         : {con['archivo_salida']}")
         return 0 if con["es_hoy"] else 3
+
+    if args.pendientes:
+        pen = pendientes(fecha)
+        if args.json:
+            print(json.dumps(pen, ensure_ascii=False, indent=2))
+            return 0
+        meses = ", ".join(f"{p}: {n}" for p, n in pen["por_mes"].items())
+        print(f"Revisiones pendientes al {fecha.strftime('%d-%m-%Y')}: {pen['total']}  ({meses})")
+        for insp in pen["por_inspector"]:
+            print(f"\n{insp['nombre']} <{insp['email']}>: {len(insp['pendientes'])}")
+            for b in insp["pendientes"]:
+                print(f"  {b['fecha_dmy']}  {b['dia']:<10} bloque {b['slot']}  {b['categoria']}")
+        if pen["total"]:
+            print("\nCada una se devuelve respondiendo su correo «Fiscalización web DM — <categoría> — "
+                  "<fecha>» con el Excel revisado adjunto.")
+        return 0
 
     if args.estado:
         filas = cobertura()

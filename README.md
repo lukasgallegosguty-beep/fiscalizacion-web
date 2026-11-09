@@ -9,6 +9,8 @@ las ofertas encontradas en la web contra el listado ISP vigente, dejan el Excel 
 devuelven los archivos revisados respondiendo ese correo, un script los carga en
 `revision/`, y ese feedback entra en la corrida siguiente.
 
+**Quién hace qué cada día, cada semana y en el cierre del mes:** `OPERACION.md`.
+
 ## Estructura
 
 ```
@@ -21,8 +23,9 @@ scripts/feedback.py                    Lee revision/ y alimenta la búsqueda
 scripts/generar_reporte.py             Genera el Excel en el formato estándar
 scripts/preflight.sh                   Verifica que se va a poder guardar
 integraciones/recepcion-correo/        Carga en revision/ las revisiones que llegan por correo
-tests/                                 Pruebas: turnos del Planner, recepción por correo
+tests/                                 Pruebas: turnos del Planner, recepción por correo, pendientes
 estado-rotacion.json                   Última categoría procesada + historial
+OPERACION.md                           Modus operandi: quién hace qué y cuándo
 RUTINA.md                              Prompt de la rutina programada
 ```
 
@@ -33,6 +36,7 @@ bash scripts/preflight.sh main               # ¿se va a poder guardar el result
 python3 scripts/rotacion.py --slot 1         # categoría del bloque 1 de hoy
 python3 scripts/rotacion.py --semana         # plan completo de la semana
 python3 scripts/rotacion.py --estado         # cobertura y cuántos van revisados
+python3 scripts/rotacion.py --pendientes     # qué revisiones faltan, por inspector
 python3 scripts/feedback.py --categoria <slug>   # qué dejaron los inspectores
 python3 scripts/generar_reporte.py --entrada hallazgos.json --auto --slot 1
 python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos 21
