@@ -15,7 +15,7 @@ denuncia.
 |---|---|
 | Lunes a viernes, 07:30 | Las rutinas «bloque 1» y «bloque 2» buscan una categoría cada una, guardan el Excel en el repositorio y le mandan el enlace por correo al inspector de turno. |
 | Cada 15 minutos | La recepción revisa el correo: cada Excel revisado que llega como respuesta queda en `revision/`, y el inspector recibe la confirmación. |
-| En cada búsqueda | La rutina usa lo que devolvieron los inspectores de esa categoría: no repite enlaces ya revisados y sigue sus observaciones. |
+| En cada búsqueda | La rutina usa lo que devolvieron los inspectores de esa categoría y lo que se resolvió en las reuniones de cierre: no repite enlaces ya revisados o ya decididos, y sigue las observaciones y las justificaciones. |
 | Semana de cierre | No hay búsquedas. Las rutinas igual se despiertan, ven que es semana de cierre y se detienen: es lo esperado. |
 | Martes de la semana de cierre, temprano | Llega a los tres el consolidado del mes, con lo que confirmaron los inspectores. A las 09:00 es la reunión, que ya está en el calendario. |
 | Feriados | La búsqueda corre igual. Ese día no se exige la revisión, y el cierre no la cuenta como pendiente. |
@@ -108,7 +108,9 @@ el martes por la mañana no entra al consolidado.
 - En la reunión se completan «¿Se procesa como denuncia?» y «Justificación de la
   decisión».
 - Después, se responde el correo del consolidado con el archivo completado.
-  Queda como acta del mes en `revision/`.
+  Queda como acta del mes en `revision/`, y sus decisiones entran en las
+  búsquedas siguientes. Por eso conviene que cada justificación sea clara y no
+  contradiga la decisión: la rutina la lee como criterio.
 
 **Dos veces al año: el primer fin de semana de abril y el de septiembre.** Chile
 cambia la hora, y las rutinas de bloque tienen la hora fijada a mano. Hay que

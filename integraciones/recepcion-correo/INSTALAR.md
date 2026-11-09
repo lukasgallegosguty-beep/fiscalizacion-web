@@ -28,7 +28,7 @@ dañaron los adjuntos de salida del 24-08-2026.
 | … con una versión corregida y el mismo nombre | Reemplaza la anterior. |
 | … con el mismo archivo otra vez | No crea nada nuevo; igual le confirma. |
 | … sin Excel, pero con otro adjunto (`winmail.dat`, `.xls`, `.pdf`) | Le avisa al inspector que no llegó el Excel. |
-| El consolidado completado en la reunión | Lo guarda en `revision/` como acta; la rutina no lo cuenta como revisión. |
+| El consolidado completado en la reunión | Lo guarda en `revision/` como acta. La rutina no lo cuenta como revisión, pero usa sus decisiones en las búsquedas siguientes. |
 | De alguien de ispch.cl que no está en la lista | No lo sube y te avisa a ti. |
 | Que Google no pudo autenticar como enviado desde ispch.cl | Lo retiene sin responder y te avisa a ti: puede ser alguien haciéndose pasar por un inspector, y la rutina lee las observaciones del inspector como instrucciones. Si apagas la verificación, lo retenido de los últimos 10 días se carga solo. |
 | GitHub no responde o el token venció | Deja el correo pendiente, reintenta cada 15 minutos y te avisa una vez al día. El inspector recibe la confirmación cuando el archivo queda arriba. |

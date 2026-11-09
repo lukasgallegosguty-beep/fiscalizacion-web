@@ -727,7 +727,11 @@ respondiendo el correo del reporte, un script los deja en la carpeta `revision/`
 del repositorio (ver `integraciones/recepcion-correo/INSTALAR.md`) y
 `scripts/feedback.py` los lee al inicio de cada corrida (ver "Paso 0-ter"). Las
 URL ya evaluadas se excluyen automáticamente y las correcciones del inspector
-ajustan el criterio de cruce.
+ajustan el criterio de cruce. También lee las actas de las reuniones de cierre:
+las instrucciones que empiezan con «Ya resuelto en la reunión de cierre» son
+decisiones del equipo sobre un caso concreto (ya alertado, no requiere registro,
+venta internacional…). Ese caso no se vuelve a reportar, y su criterio vale para
+publicaciones equivalentes.
 
 Los campos "Decisión final" y "Observaciones del inspector" permiten registrar la
 evaluación manual de cada caso. Este feedback es valioso para mejorar la skill:
