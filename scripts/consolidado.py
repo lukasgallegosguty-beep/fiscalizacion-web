@@ -4,7 +4,8 @@ Consolidado mensual de la fiscalización web de DM (ISP/ANDIM).
 
 Cierra el mes: junta en un solo Excel los casos del mes que YA pasaron por un
 inspector y quedaron en pie, para que los tres decidan en la reunión de la
-semana 4 cuáles se procesan como denuncia.
+última semana del mes cuáles se procesan como denuncia. Qué semanas forman el
+mes y quién revisó cada una lo decide scripts/rotacion.py, no este script.
 
 Qué entra (y de dónde):
 

@@ -85,26 +85,56 @@ pedir permiso.
 
 ## Calendario del mes
 
-El mes se divide en semanas de búsqueda más una de cierre:
+El mes se divide en semanas de búsqueda más una de cierre, igual que en el plan
+de Microsoft Planner del equipo (noviembre de 2026 a diciembre de 2027):
 
 | Semana | Qué pasa | Quién revisa |
 |---|---|---|
 | 1 | Fiscalización, 10 categorías | Emilio Millán · emillan@ispch.cl |
 | 2 | Fiscalización, 10 categorías | Lukas Gallegos · lgallegos@ispch.cl |
 | 3 | Fiscalización, 10 categorías | María Inés Medina · mmedina@ispch.cl |
-| 4 | Solo en meses de 5 semanas: fiscalización | Emilio Millán |
+| 4 | Solo en meses de 5 semanas: fiscalización | Según la tabla de abajo |
 | **Última** | **Sin búsquedas.** Martes 07:30 consolidado, 09:00 reunión | Los tres |
 
-Una semana pertenece al mes donde cae la **mayoría de sus días hábiles**, que es
-el mes de su **miércoles**. La semana del lunes 31-08-2026 tiene cuatro de sus
-cinco días en septiembre, así que es la semana 1 de septiembre.
+**La cuarta semana** solo existe en los meses de cinco semanas, y el Planner la
+reparte mes a mes:
+
+| Mes | Revisa la cuarta semana |
+|---|---|
+| enero 2027 | Lukas Gallegos |
+| abril 2027 | María Inés Medina |
+| julio 2027 | Lukas Gallegos |
+| octubre 2027 | María Inés Medina |
+| diciembre 2027 | Emilio Millán |
+
+Un mes de cinco semanas que no esté en la tabla le da la cuarta a Emilio. La
+tabla es `CUARTA_SEMANA`, en `scripts/rotacion.py`, y **hay que ampliarla cuando
+se arme el Planner de 2028**: si no, todas las cuartas semanas de 2028 quedan
+para Emilio.
+
+**A qué mes pertenece una semana.** Desde el periodo 2026-11, una semana de lunes
+a viernes es del mes de su **viernes**, que es como la cuenta el Planner. La del
+lunes 28-12-2026 termina el viernes 01-01-2027: es la semana 1 de enero, no la
+quinta de diciembre, y por eso diciembre de 2026 cierra el martes 22-12.
+
+Hasta 2026-10 la semana fue del mes de su **miércoles**, donde cae la mayoría de
+sus días hábiles: la del lunes 31-08-2026 es la semana 1 de septiembre.
+Septiembre y octubre de 2026 ya se ejecutaron con esa regla y la conservan,
+porque de ella dependen los consolidados emitidos y a qué mes se atribuye cada
+revisión devuelta. El cambio de regla no altera ninguna semana anterior al
+lunes 21-12-2026.
 
 **Por qué no son siempre cuatro semanas.** Doce meses por cuatro semanas son 48,
-y el año tiene 52. Cuatro veces al año un mes tiene cinco semanas y no hay forma
-de evitarlo. Por eso el cierre no es «la semana 4» sino **la última semana del
-mes**: el mes siempre cierra al final y ninguna semana queda sin trabajo. En los
-meses de cinco, la cuarta también fiscaliza y le vuelve a tocar a Emilio, porque
-la rotación es de tres.
+y el año tiene 52 o 53. Cuatro o cinco veces al año un mes tiene cinco semanas
+—en 2027 son cinco: enero, abril, julio, octubre y diciembre— y no hay forma de
+evitarlo. Por eso el cierre no es «la semana 4» sino **la última semana del
+mes**: el mes siempre cierra al final y ninguna semana queda sin trabajo.
+
+**Cómo se comprueba.** `tests/turnos_planner.csv` tiene el Planner semana por
+semana, de septiembre de 2026 a diciembre de 2027, y
+`python3 -m unittest discover -s tests -v` verifica día por día y bloque por
+bloque que `rotacion.py` asigna lo mismo, y que cada cierre cae el martes de su
+semana.
 
 **Qué pasaba antes.** La semana pertenecía al mes de su lunes y el cierre era
 siempre la cuarta. Eso dejaba semanas muertas: la del 31-08-2026 quedó fuera del
@@ -439,10 +469,10 @@ Las reuniones están en Google Calendar como eventos INDIVIDUALES, uno por mes,
 título "Fiscalización web DM — revisión mensual de casos (<mes> <año>)",
 09:00-10:00 y los tres invitados.
 No son un evento recurrente a propósito: la recurrencia solo se puede expresar
-con RDATE (fechas explícitas), porque el martes de la última semana no coincide
-con el "cuarto martes del mes" en 5 de cada 36 meses. Y Outlook no soporta RDATE:
-la invitación llega y no se puede agregar. Un evento por mes es lo único que abre
-bien en los dos calendarios.
+con RDATE (fechas explícitas), porque el martes de la última semana no siempre
+coincide con el "cuarto martes del mes" (no coincide, por ejemplo, en septiembre
+de 2027). Y Outlook no soporta RDATE: la invitación llega y no se puede agregar.
+Un evento por mes es lo único que abre bien en los dos calendarios.
 
   a) Busca el evento de HOY. Si existe, confirma que los tres siguen invitados.
      Si no existe, créalo hoy de 09:00 a 10:00 e invita a los tres.
@@ -454,9 +484,10 @@ bien en los dos calendarios.
      fecha consultada no es un día de cierre (lo normal al mirar hacia adelante)
      e imprime el JSON igual, así que lee la salida y no lo trates como fallo; y
      devuelve el cierre del mes del CICLO, que no siempre es el del calendario
-     —una semana pertenece al mes de su miércoles—, así que consultar el
-     31-08-2027 responde con el cierre de septiembre de 2027. Guíate por el
-     campo "periodo" que viene en la misma respuesta.
+     —desde noviembre de 2026 una semana pertenece al mes de su viernes, como en
+     el Planner—, así que consultar el 31-08-2027 responde con el cierre de
+     septiembre de 2027. Guíate por el campo "periodo" que viene en la misma
+     respuesta.
   c) BUSCA ANTES DE CREAR, siempre. Duplicar la reunión es peor que no tenerla:
      nadie sabe a cuál de las dos ir. Si ya existe, no toques nada.
 Si Calendar no está disponible, dilo en la notificación; no es ALERTA, porque el

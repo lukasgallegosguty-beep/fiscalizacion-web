@@ -100,21 +100,24 @@ de fiscalización.
 
 ### El mes, no solo la semana
 
-Una semana pertenece al mes donde cae la **mayoría de sus días hábiles**, que es
-el mes de su **miércoles**. La semana del lunes 31-08-2026 tiene cuatro de sus
-cinco días en septiembre: es la semana 1 de septiembre.
+Los turnos siguen el plan de Microsoft Planner del equipo (noviembre de 2026 a
+diciembre de 2027). Desde el periodo 2026-11, una semana de lunes a viernes
+pertenece al mes de su **viernes**: la del lunes 28-12-2026 es la semana 1 de
+enero de 2027. Hasta 2026-10 fue el mes de su miércoles, y septiembre y octubre
+de 2026 conservan esa regla porque ya se ejecutaron.
 
 | Semana | Qué pasa | Quién revisa |
 |---|---|---|
 | 1 | Fiscalización | Emilio Millán |
 | 2 | Fiscalización | Lukas Gallegos |
 | 3 | Fiscalización | María Inés Medina |
-| 4 | Solo en meses de 5 semanas | Emilio Millán |
+| 4 | Solo en meses de 5 semanas | Según el Planner (`CUARTA_SEMANA` en `rotacion.py`) |
 | Última | Consolidado + reunión | Los tres |
 
 El cierre es **la última semana del mes**, no «la cuarta». Doce meses por cuatro
-semanas son 48 y el año tiene 52: cuatro veces al año un mes tiene cinco semanas.
-Anclar el cierre al final es lo que evita que sobre una semana sin trabajo.
+semanas son 48 y el año tiene 52 o 53: cuatro o cinco veces al año un mes tiene
+cinco semanas. Anclar el cierre al final es lo que evita que sobre una semana sin
+trabajo.
 
 El inspector **no** se deduce ni se fija a mano: sale de `rotacion.py`.
 

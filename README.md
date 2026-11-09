@@ -20,6 +20,7 @@ scripts/rotacion.py                    Qué categorías tocan hoy (calendario)
 scripts/feedback.py                    Lee revision/ y alimenta la búsqueda
 scripts/generar_reporte.py             Genera el Excel en el formato estándar
 scripts/preflight.sh                   Verifica que se va a poder guardar
+tests/                                 Turnos del Planner y su prueba
 estado-rotacion.json                   Última categoría procesada + historial
 RUTINA.md                              Prompt de la rutina programada
 ```
@@ -34,6 +35,7 @@ python3 scripts/rotacion.py --estado         # cobertura y cuántos van revisado
 python3 scripts/feedback.py --categoria <slug>   # qué dejaron los inspectores
 python3 scripts/generar_reporte.py --entrada hallazgos.json --auto --slot 1
 python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos 21
+python3 -m unittest discover -s tests -v     # ¿el calendario sigue al Planner?
 ```
 
 ## Calendario
@@ -54,14 +56,38 @@ Horario: **lunes a viernes 07:30 hora de Chile**, desde el 24-08-2026.
 
 ## Inspectores
 
-La revisión es semanal y rota cada tres semanas, indefinidamente, desde el lunes
-24-08-2026:
+La revisión va por **semana del mes** y sigue el plan de Microsoft Planner del
+equipo (noviembre de 2026 a diciembre de 2027). Cada mes vuelve a empezar en la
+semana 1: no hay una rotación que se arrastre de un mes al siguiente.
 
-| Semana | Inspector | Correo |
+| Semana del mes | Inspector | Correo |
 |---|---|---|
 | 1 | Emilio Millán | emillan@ispch.cl |
 | 2 | Lukas Gallegos | lgallegos@ispch.cl |
 | 3 | María Inés Medina | mmedina@ispch.cl |
+| 4 (solo en meses de 5 semanas) | según la tabla de abajo | |
+| Última | Cierre: no se busca; el martes sale el consolidado y se reúnen los tres | |
+
+Cuarta semana de los meses de cinco semanas:
+
+| Mes | Inspector |
+|---|---|
+| enero 2027 | Lukas Gallegos |
+| abril 2027 | María Inés Medina |
+| julio 2027 | Lukas Gallegos |
+| octubre 2027 | María Inés Medina |
+| diciembre 2027 | Emilio Millán |
+
+Un mes de cinco semanas que no esté en la tabla le da la cuarta a Emilio. La
+tabla vive en `scripts/rotacion.py` (`CUARTA_SEMANA`) y **hay que ampliarla cuando
+se arme el Planner de 2028**.
+
+Una semana de lunes a viernes pertenece al mes de su **viernes**, como en el
+Planner: la del lunes 28-12-2026 es la semana 1 de enero de 2027. Septiembre y
+octubre de 2026 se calcularon con la regla anterior —el mes del miércoles— y
+quedan así. El detalle está en `RUTINA.md`, sección «Calendario del mes», y
+`tests/test_turnos_planner.py` comprueba el calendario contra el Planner semana
+por semana.
 
 Cada Excel se envía por Gmail al inspector de turno apenas termina la búsqueda.
 El inspector completa **"Decisión final"** y **"Observaciones del inspector"** y
