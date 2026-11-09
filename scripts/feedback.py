@@ -165,7 +165,9 @@ def decisiones_de_reunion():
         ws = wb["Casos del mes"]
         idx = _indice(ws)
         c_cat, c_url, c_nom = idx.get("categoria"), idx.get("url"), idx.get("nombre de dm ofertado")
-        c_den = next((c for k, c in idx.items() if "denuncia" in k), None)
+        # «Decisión final» desde el cierre de noviembre de 2026; las actas
+        # anteriores decían «¿Se procesa como denuncia?».
+        c_den = idx.get("decision final") or next((c for k, c in idx.items() if "denuncia" in k), None)
         c_jus = next((c for k, c in idx.items() if k.startswith("justificacion")), None)
         for fila in ws.iter_rows(min_row=2, values_only=True):
             def val(c):
@@ -270,7 +272,7 @@ def analizar(slug):
             res["urls_excluidas"].append(caso["url"])
         texto = (f"Ya resuelto en la reunión de cierre de {caso['periodo']}: "
                  f"«{caso['nombre']}» ({caso['url'] or 'sin URL'}). "
-                 f"¿Se procesa como denuncia? {caso['decision']}.")
+                 f"Decisión: {caso['decision']}.")
         if caso["justificacion"]:
             texto += f" Justificación: «{caso['justificacion']}»."
         texto += " No lo vuelvas a reportar, y ten en cuenta ese criterio con publicaciones equivalentes."

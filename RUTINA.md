@@ -470,8 +470,10 @@ El repositorio es público: no necesitan cuenta ni permisos.
       menciónalo: son publicaciones que el inspector anotó varias veces en su
       nota de marketplace. El consolidado ya las dejó en una sola fila; se avisa
       para que en la reunión no se revisen de nuevo una por una.
-    - Cierra recordando que en la reunión de las 09:00 hay que completar
-      "¿Se procesa como denuncia?" y "Justificación de la decisión", y que el
+    - Cierra recordando que en la reunión de las 09:00 hay que completar, en
+      cada caso, "Decisión final" (una de las cuatro de la lista: se genera
+      nueva alerta; falta información, se consultará; se descarta; ya procesado
+      anteriormente en una alerta) y "Justificación de la decisión", y que el
       archivo completado se devuelve respondiendo este mismo correo con el
       Excel adjunto: se carga solo en el repositorio.
 Si el envío falla: ALERTA (el archivo ya está en main; di el enlace en la alerta).
