@@ -6,8 +6,8 @@ dispositivos médicos** (ISP / ANDIM, Chile).
 Dos rutinas revisan **dos categorías por día hábil** (un bloque cada una), cruzan
 las ofertas encontradas en la web contra el listado ISP vigente, dejan el Excel en
 `resultados/` y lo envían por correo al inspector de turno. Los inspectores
-devuelven los archivos revisados a `revision/`, y ese feedback entra en la corrida
-siguiente.
+devuelven los archivos revisados respondiendo ese correo, un script los carga en
+`revision/`, y ese feedback entra en la corrida siguiente.
 
 ## Estructura
 
@@ -20,7 +20,8 @@ scripts/rotacion.py                    Qué categorías tocan hoy (calendario)
 scripts/feedback.py                    Lee revision/ y alimenta la búsqueda
 scripts/generar_reporte.py             Genera el Excel en el formato estándar
 scripts/preflight.sh                   Verifica que se va a poder guardar
-tests/                                 Turnos del Planner y su prueba
+integraciones/recepcion-correo/        Carga en revision/ las revisiones que llegan por correo
+tests/                                 Pruebas: turnos del Planner, recepción por correo
 estado-rotacion.json                   Última categoría procesada + historial
 RUTINA.md                              Prompt de la rutina programada
 ```
@@ -91,7 +92,10 @@ por semana.
 
 Cada Excel se envía por Gmail al inspector de turno apenas termina la búsqueda.
 El inspector completa **"Decisión final"** y **"Observaciones del inspector"** y
-sube el archivo a `revision/`. Ver `revision/README.md`.
+**responde ese mismo correo con el Excel adjunto**: un script de Google lo carga
+solo en `revision/` y le confirma que quedó arriba. No hace falta cuenta de
+GitHub. Instalación y casos en `integraciones/recepcion-correo/INSTALAR.md`;
+subirlo a mano sigue funcionando (ver `revision/README.md`).
 
 ## Objetivo de volumen
 

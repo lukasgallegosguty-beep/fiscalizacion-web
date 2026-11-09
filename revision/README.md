@@ -16,8 +16,15 @@ La rutina lee esta carpeta al inicio de cada corrida y usa su contenido para:
 
 ## Cómo cargar un archivo revisado
 
-Sube el `.xlsx`. Lo ideal es no renombrarlo, porque el nombre original ya trae la
-categoría y la fecha:
+**Respondiendo el correo del reporte**, con el Excel completado adjunto. Un
+script lo sube a esta carpeta y le confirma al inspector en unos minutos, sin
+cuenta de GitHub. Cómo funciona, qué hace con cada caso y cómo se instala:
+`integraciones/recepcion-correo/INSTALAR.md`.
+
+Subirlo a mano a esta carpeta desde GitHub sigue funcionando igual.
+
+Por cualquiera de los dos caminos, lo ideal es no renombrar el archivo, porque el
+nombre original ya trae la categoría y la fecha:
 
 ```
 Fiscalizacion_Web_DM_agujas-hipodermicas_24-08-2026.xlsx
@@ -37,6 +44,10 @@ el nombre son dos cosas:
 
 - **La categoría**, aunque sea sin guiones (`guantesquirurgicos` vale).
 - **La fecha del reporte**, como `26-08-2026` o `26082026`.
+
+Si llega por correo con un nombre que no dice nada («Libro1.xlsx»), el script le
+pone el del reporte al que responde, más el sufijo del inspector:
+`Fiscalizacion_Web_DM_agujas-hipodermicas_24-08-2026_emillan.xlsx`.
 
 Sin la categoría el archivo no se puede atribuir y queda fuera del feedback y del
 consolidado mensual. Cuando eso pasa, la rutina lo reporta con el nombre exacto
@@ -63,7 +74,7 @@ para investigación manual, no hallazgos clasificados.
 
 ## El consolidado mensual
 
-El martes de la semana 4 llega por correo un Excel distinto,
+El martes de la última semana del mes llega por correo un Excel distinto,
 `Consolidado_Mensual_DM_MM-AAAA.xlsx`, con los casos del mes que sobrevivieron a
 la revisión. Ese archivo **no** lleva "Decisión final": lleva
 **«¿Se procesa como denuncia?»** (SÍ / NO, con lista desplegable) y
@@ -79,7 +90,9 @@ Sus otras hojas:
 | Notas de marketplace | Observaciones sin enlaces, que no se pueden tabular pero explican qué se revisó a mano. |
 | Cobertura del mes | Qué reportes se emitieron, cuáles volvieron revisados y cuántos casos aportó cada uno. |
 
-El consolidado completado se sube a esta misma carpeta.
+El consolidado completado se devuelve igual que una revisión: respondiendo su
+correo con el archivo, o subiéndolo a esta carpeta. Queda como acta del mes; la
+rutina no lo cuenta como la revisión de un reporte.
 
 ## Verificar qué está leyendo la rutina
 
