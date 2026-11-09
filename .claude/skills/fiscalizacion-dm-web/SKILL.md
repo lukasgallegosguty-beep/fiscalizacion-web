@@ -137,9 +137,12 @@ python3 scripts/feedback.py --categoria <slug> --json
 Lee los Excel que los inspectores dejaron en `revision/` y devuelve cuatro cosas
 que **son de uso obligatorio** en la corrida:
 
-1. `urls_excluidas` — enlaces que un inspector ya evaluó. **No volver a
-   reportarlos**, aunque sigan activos y sigan siendo infracción. Ya están en el
-   circuito; repetirlos le hace perder tiempo al inspector.
+1. `urls_excluidas` — enlaces que un inspector ya evaluó, y los que ya están en
+   un reporte anterior de la categoría aunque nadie lo haya revisado todavía
+   (cada reporte es una planilla en línea que alguien está por revisar). **No
+   volver a reportarlos**, aunque sigan activos y sigan siendo infracción. Ya
+   están en el circuito; repetirlos le hace perder tiempo al inspector. Los del
+   anexo de un reporte anterior no están en la lista: esos sí tienen que volver.
 2. `falsos_positivos` — la rutina acusó y el inspector desmintió. El criterio de
    cruce está **demasiado estricto**: ampliar la coincidencia flexible (variantes
    de marca, razón social del titular, nombres comerciales alternativos).
@@ -307,42 +310,34 @@ ser lo único que hay de Mercado Libre, que le responde 403 a la rutina. Pero
 entra marcado **POR VERIFICAR**: nadie lo cruzó contra el listado ISP todavía, y
 el archivo tiene que decirlo en vez de mezclarlo con lo confirmado.
 
-### Paso 5-ter — Enviar el reporte al inspector de la semana
+### Paso 5-ter — La planilla en línea: no escribirle al inspector
 
-Después de que el push haya quedado confirmado, avisar por Gmail al inspector que
-devuelve `scripts/rotacion.py` en el campo `inspector`. Cambia según la semana
-del mes; no fijarlo a mano.
+La rutina **no** le escribe al inspector. Con el reporte en `main`, el script de
+las planillas en línea (`integraciones/planillas-google/`, corre en la cuenta de
+Google cada 15 minutos) lo convierte en una planilla de Google en la carpeta de
+la categoría, compartida con los tres inspectores, y le manda al inspector que
+quedó en `historial/` el enlace con el resumen: ofertas revisadas en total y
+cuántas se incluyen, desglose, los casos más relevantes, el anexo y el feriado si
+lo hay. El inspector trabaja en la planilla, y lo que escribe vuelve solo a
+`revision/`. Si la rutina también le escribe, le llegan dos correos, y el de la
+rutina le pediría algo que ya no se hace.
 
-**El Excel va como ENLACE, nunca como adjunto.** Adjuntar el archivo obliga a
-transcribir su contenido binario en base64 dentro de la llamada a la herramienta,
-y una sola diferencia de carácter en esos miles de caracteres deja el archivo
+Lo que sí le toca a la rutina es dejar bien el registro de `rotacion.py
+--avanzar`, porque de ahí sale ese correo: el inspector, las cifras
+(`--hallazgos` y `--detectados`) y, en `--notas`, lo que la planilla no dice:
+cuántas ofertas se descartaron por jurisdicción y qué marketplaces bloquearon el
+acceso.
+
+**Nunca adjuntar el Excel a un correo.** Adjuntarlo obliga a transcribir su
+contenido binario en base64 dentro de la llamada a la herramienta, y una sola
+diferencia de carácter en esos miles de caracteres deja el archivo
 irrecuperable. Ya ocurrió: los dos reportes del 24-08-2026 llegaron corruptos por
-esta vía, con el original intacto en el repositorio. No es un riesgo teórico ni
-depende de cuánto cuidado se ponga: el formato no tolera el error.
+esta vía, con el original intacto en el repositorio. Por eso los archivos pasan
+entre GitHub y Google por el script, sin el modelo de por medio.
 
-El enlace de descarga directa se arma con la ruta del archivo ya empujado:
-
-```
-https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<nombre-del-archivo>.xlsx
-```
-
-El repositorio es público, así que el inspector no necesita cuenta de GitHub ni
-permisos: el enlace descarga el archivo directamente.
-
-- **Asunto**: `Fiscalización web DM — <Categoría> — <DD-MM-YYYY>`
-- **Cuerpo**: el enlace de descarga en un lugar visible; categoría y fecha; total
-  de hallazgos con el desglose por clasificación; si se alcanzó el objetivo de 20
-  y si no, por qué; los 3 casos más relevantes; los descartados por jurisdicción;
-  y los marketplaces que bloquearon el acceso. Cerrar recordando que las columnas
-  "Decisión final" y "Observaciones del inspector" se completan y que el archivo
-  se devuelve respondiendo ese mismo correo con el Excel adjunto: se carga solo
-  en `revision/`.
-
-Enviar **un correo por bloque**, no uno diario con los dos.
-
-Si el push a `main` no llegó a completarse, el enlace a `main` no va a existir.
-En ese caso, enlazar la rama donde sí quedó el archivo, reemplazando `main` por
-el nombre de esa rama en la URL, y decirlo en el cuerpo.
+Si el push a `main` no llegó a completarse, el script no ve el reporte y al
+inspector no le llega nada: decirlo en la notificación con el nombre de la rama
+donde quedó.
 
 Si el envío falla, informarlo en la notificación con el error. No es motivo para
 deshacer el commit: el reporte ya está en el repositorio.
@@ -722,12 +717,12 @@ Después de presentar el Excel, proporciona un resumen conciso en el chat que in
 
 ## Ciclo de retroalimentación
 
-El feedback dejó de ser manual: los inspectores devuelven los Excel completados
-respondiendo el correo del reporte, un script los deja en la carpeta `revision/`
-del repositorio (ver `integraciones/recepcion-correo/INSTALAR.md`) y
-`scripts/feedback.py` los lee al inicio de cada corrida (ver "Paso 0-ter"). Las
-URL ya evaluadas se excluyen automáticamente y las correcciones del inspector
-ajustan el criterio de cruce. También lee las actas de las reuniones de cierre:
+El feedback dejó de ser manual: los inspectores revisan cada reporte en su
+planilla en línea, un script la copia sola a la carpeta `revision/` del
+repositorio unos minutos después de que dejan de editar (ver
+`integraciones/planillas-google/INSTALAR.md`) y `scripts/feedback.py` la lee al
+inicio de cada corrida (ver "Paso 0-ter"). Las URL ya reportadas se excluyen
+automáticamente y las correcciones del inspector ajustan el criterio de cruce. También lee las actas de las reuniones de cierre:
 las instrucciones que empiezan con «Ya resuelto en la reunión de cierre» son
 decisiones del equipo sobre un caso concreto (ya alertado, no requiere registro,
 venta internacional…). Ese caso no se vuelve a reportar, y su criterio vale para

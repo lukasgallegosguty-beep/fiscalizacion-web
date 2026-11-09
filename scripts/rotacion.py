@@ -598,6 +598,70 @@ def archivos_revisados(slug=None, anio=None, mes=None):
     return ok, fallidos
 
 
+# Las clasificaciones que el inspector tiene que confirmar o corregir. Las
+# filas FUERA DE ALCANCE y SIN HALLAZGOS no piden «Decisión final»: el
+# consolidado no las usa, y en los Excel devueltos los inspectores las dejaron
+# muchas veces con solo una observación.
+CLASIFICACIONES_A_DECIDIR = ("REGISTRADO", "NO REGISTRADO")
+
+_SIN_DECIDIR = {}  # por (ruta, fecha de modificación, tamaño): cada archivo se lee una vez
+
+
+def sin_decidir(ruta):
+    """Filas REGISTRADO y NO REGISTRADO de «Hallazgos» que siguen sin «Decisión final».
+
+    Desde que la revisión se hace en planillas en línea, revision/ ya no recibe
+    solo archivos terminados: la planilla se copia ahí apenas el inspector
+    escribe algo. Una revisión a medias está en revision/ pero no está revisada,
+    y el cierre tiene que poder decirlo en vez de contarla como devuelta.
+
+    0 es una revisión completa. En los 86 Excel devueltos hasta noviembre de 2026
+    no hay ninguna fila REGISTRADO o NO REGISTRADO sin decisión, así que la regla
+    no cambia nada de lo anterior. Contar todas las filas con enlace sí lo
+    cambiaba: tres filas FUERA DE ALCANCE de septiembre y octubre tienen solo una
+    observación del inspector, y sus reportes pasaban a figurar a medias.
+    Un archivo que no se puede leer cuenta como completo, como antes de las
+    planillas: no hay filas que contar, e inventar un faltante sería peor.
+    feedback.py y consolidado.py lo leen igual y fallan a la vista si está
+    dañado.
+    """
+    try:
+        clave = (ruta, os.path.getmtime(ruta), os.path.getsize(ruta))
+    except OSError:
+        return 0
+    if clave not in _SIN_DECIDIR:
+        _SIN_DECIDIR[clave] = _contar_sin_decidir(ruta)
+    return _SIN_DECIDIR[clave]
+
+
+def _contar_sin_decidir(ruta):
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(ruta, read_only=True, data_only=True)
+    except Exception:  # vacío o dañado
+        return 0
+    try:
+        if "Hallazgos" not in wb.sheetnames:
+            return 0
+        filas = wb["Hallazgos"].iter_rows(values_only=True)
+        encabezado = [_sin_tildes(str(v or "")).strip() for v in next(filas, ())]
+        if "clasificacion" not in encabezado or "decision final" not in encabezado:
+            return 0
+        i_cla, i_dec = encabezado.index("clasificacion"), encabezado.index("decision final")
+        n = 0
+        for f in filas:
+            clasificacion = f[i_cla] if len(f) > i_cla else None
+            decision = f[i_dec] if len(f) > i_dec else None
+            if (str(clasificacion or "").strip().upper() in CLASIFICACIONES_A_DECIDIR
+                    and not str(decision or "").strip()):
+                n += 1
+        return n
+    except Exception:
+        return 0
+    finally:
+        wb.close()
+
+
 def resolver_excel(cat):
     """Devuelve el Excel ISP vigente de la categoría (el más reciente si hay varios)."""
     coincidencias = sorted(glob.glob(os.path.join(DIR_ISP, cat["patron"])))
@@ -794,11 +858,18 @@ def plan_consolidacion(fecha=None):
     # Con os.path.exists() esta cobertura daba 0 revisados de 32 teniendo 28 en
     # revision/, y el correo del cierre le habría dicho a los tres inspectores
     # que no había revisado nadie.
-    devueltos = {(i["slug"], i["fecha"]) for i in archivos_revisados()[0]}
+    devueltos = {}
+    for i in archivos_revisados()[0]:
+        devueltos.setdefault((i["slug"], i["fecha"]), []).append(i["ruta"])
 
     for b in esperados:
         b["reporte"] = os.path.exists(os.path.join(DIR_RESULTADOS, b["archivo"]))
-        b["revisado"] = (b["slug"], date.fromisoformat(b["fecha"])) in devueltos
+        rutas = devueltos.get((b["slug"], date.fromisoformat(b["fecha"])), [])
+        # Revisado es revisado ENTERO. Una planilla a medias también está en
+        # revision/ (se copia sola apenas el inspector escribe), pero sigue
+        # pendiente. Si hay dos archivos del mismo reporte, vale el más completo.
+        b["sin_decidir"] = min(sin_decidir(r) for r in rutas) if rutas else 0
+        b["revisado"] = bool(rutas) and b["sin_decidir"] == 0
         b["feriado"] = feriado_de(date.fromisoformat(b["fecha"]))
 
     return {
@@ -838,6 +909,13 @@ def plan_consolidacion(fecha=None):
         # que el correo del cierre no lo cuente como incumplimiento.
         "sin_revisar": [b["archivo"] for b in esperados
                         if b["reporte"] and not b["revisado"] and not b["feriado"]],
+        # Los de sin_revisar que el inspector ya empezó: lo ya decidido sí
+        # aporta casos, pero faltan filas.
+        "revision_incompleta": [{"archivo": b["archivo"], "fecha": b["fecha_dmy"],
+                                 "categoria": b["categoria"], "inspector": b["inspector"],
+                                 "sin_decidir": b["sin_decidir"]}
+                                for b in esperados
+                                if b["reporte"] and b["sin_decidir"] and not b["feriado"]],
         "excusados_feriado": [{"archivo": b["archivo"], "fecha": b["fecha_dmy"],
                                "categoria": b["categoria"], "feriado": b["feriado"]}
                               for b in esperados
@@ -912,6 +990,10 @@ def avanzar(fecha=None, slot=1, hallazgos=None, notas="", detectados=None):
         entrada["detectados"] = detectados
     if notas:
         entrada["notas"] = notas
+    # El script de las planillas arma el correo al inspector con este registro:
+    # si fue feriado, el correo lo dice y no le pone plazo.
+    if plan.get("feriado"):
+        entrada["feriado"] = plan["feriado"]
 
     os.makedirs(DIR_HISTORIAL, exist_ok=True)
     destino = os.path.join(DIR_HISTORIAL, f"{plan['fecha_iso']}_slot{slot}.json")
@@ -1006,6 +1088,11 @@ def main():
             print(f"  Sin revisar ({len(con['sin_revisar'])}): no aportan casos al consolidado")
             for a in con["sin_revisar"][:5]:
                 print(f"    - {a}")
+        if con["revision_incompleta"]:
+            print(f"  De esos, revisados a medias ({len(con['revision_incompleta'])}): "
+                  "lo ya decidido sí aporta casos")
+            for b in con["revision_incompleta"][:5]:
+                print(f"    - {b['archivo']}: {b['sin_decidir']} fila(s) sin «Decisión final»")
         if con["sin_emitir"]:
             print(f"  Sin emitir ({len(con['sin_emitir'])}): la corrida no llegó a generarlos")
             for a in con["sin_emitir"][:5]:
@@ -1023,10 +1110,13 @@ def main():
         for insp in pen["por_inspector"]:
             print(f"\n{insp['nombre']} <{insp['email']}>: {len(insp['pendientes'])}")
             for b in insp["pendientes"]:
-                print(f"  {b['fecha_dmy']}  {b['dia']:<10} bloque {b['slot']}  {b['categoria']}")
+                medias = (f"  (a medias: {b['sin_decidir']} fila(s) sin «Decisión final»)"
+                          if b.get("sin_decidir") else "")
+                print(f"  {b['fecha_dmy']}  {b['dia']:<10} bloque {b['slot']}  {b['categoria']}{medias}")
         if pen["total"]:
-            print("\nCada una se devuelve respondiendo su correo «Fiscalización web DM — <categoría> — "
-                  "<fecha>» con el Excel revisado adjunto.")
+            print("\nCada una se completa en su planilla en línea, cuyo enlace llegó en el correo "
+                  "«Fiscalización web DM — <categoría> — <fecha>». Las anteriores a las planillas se "
+                  "devuelven respondiendo ese correo con el Excel revisado.")
         return 0
 
     if args.estado:

@@ -1,12 +1,13 @@
 """
-La recepción de revisiones por correo contra rotacion.py.
+El script de las planillas en línea contra rotacion.py.
 
-integraciones/recepcion-correo/recepcion.gs corre en Google, en JavaScript, así
+integraciones/planillas-google/planillas.gs corre en Google, en JavaScript, así
 que no puede importar rotacion.py: repite la lista de inspectores, la de
-categorías y la regla que reconoce a qué reporte corresponde un archivo. Si se
-separan, el script le confirma al inspector una revisión que la rutina después
-no sabe atribuir. Este test exige que sigan calzando y corre los tests del
-script con Node, si está instalado.
+categorías con sus nombres y la regla que reconoce a qué reporte corresponde un
+archivo. Si se separan, el script publica una planilla en una carpeta con otro
+nombre, o le confirma al inspector una revisión que la rutina después no sabe
+atribuir. Este test exige que sigan calzando y corre los tests del script con
+Node, si está instalado.
 
 Correr desde la raíz del repositorio:
 
@@ -28,11 +29,12 @@ sys.path.insert(0, os.path.join(RAIZ, "scripts"))
 
 import rotacion  # noqa: E402
 
-CARPETA = os.path.join(RAIZ, "integraciones", "recepcion-correo")
-SCRIPT = os.path.join(CARPETA, "recepcion.gs")
+CARPETA = os.path.join(RAIZ, "integraciones", "planillas-google")
+SCRIPT = os.path.join(CARPETA, "planillas.gs")
+TESTS_JS = [os.path.join(CARPETA, n) for n in ("correo.test.js", "planillas.test.js")]
 NODE = shutil.which("node")
 
-# Carga recepcion.gs en un contexto vacío y le pasa a atribuir_() cada nombre
+# Carga planillas.gs en un contexto vacío y le pasa a atribuir_() cada nombre
 # que llega por la entrada estándar. Al cargarse, el script no llama a ningún
 # servicio de Google, así que no hace falta simularlos.
 ATRIBUIR_JS = r"""
@@ -61,6 +63,16 @@ def categorias_del_script():
     return re.findall(r"'([a-z0-9-]+)'", bloque)
 
 
+def nombres_del_script():
+    bloque = re.search(r"const NOMBRES_CATEGORIA = \{(.*?)\};", texto_del_script(), re.S).group(1)
+    return dict(re.findall(r"'([a-z0-9-]+)':\s*'([^']+)'", bloque))
+
+
+def cuentas_google_del_script():
+    bloque = re.search(r"cuentasGoogle: \[(.*?)\]", texto_del_script(), re.S).group(1)
+    return re.findall(r"'([^']+)'", bloque)
+
+
 def atribucion_de_rotacion(nombre):
     """Lo que el script debería responder: categoría y fecha, o nada."""
     info = rotacion.atribuir_archivo(nombre)
@@ -83,6 +95,15 @@ class MismasListasQueRotacion(unittest.TestCase):
 
     def test_mismas_categorias(self):
         self.assertEqual(categorias_del_script(), [c["slug"] for c in rotacion.CATEGORIAS])
+
+    def test_mismos_nombres_de_categoria(self):
+        """Los nombres de las carpetas del Drive y del asunto de los correos."""
+        self.assertEqual(nombres_del_script(), {c["slug"]: c["nombre"] for c in rotacion.CATEGORIAS})
+
+    def test_la_carpeta_se_comparte_con_los_inspectores(self):
+        """Por omisión, con la cuenta del ISP de cada uno. Si alguno entra a Google con
+        otra dirección, se cambia ahí y este test deja de aplicar: hay que ajustarlo."""
+        self.assertEqual(sorted(cuentas_google_del_script()), sorted(i["email"] for i in rotacion.INSPECTORES))
 
 
 class NombresQueArmaElScript(unittest.TestCase):
@@ -134,8 +155,7 @@ class ElScriptConNode(unittest.TestCase):
                 self.assertEqual(js, atribucion_de_rotacion(nombre))
 
     def test_tests_del_script(self):
-        r = subprocess.run([NODE, "--test", os.path.join(CARPETA, "recepcion.test.js")],
-                           capture_output=True, text=True, timeout=120)
+        r = subprocess.run([NODE, "--test"] + TESTS_JS, capture_output=True, text=True, timeout=120)
         self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-2000:])
 
 

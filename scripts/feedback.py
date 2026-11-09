@@ -5,8 +5,11 @@ búsqueda siguiente.
 
 Resuelve tres cosas que el prompt por sí solo no garantiza:
 
-1. **No repetir enlaces.** Junta todas las URL que un inspector ya evaluó, para
-   excluirlas de los hallazgos nuevos.
+1. **No repetir enlaces.** Junta todas las URL que un inspector ya evaluó, y
+   también las de los reportes anteriores que todavía nadie revisa: cada
+   reporte es una planilla en línea que alguien está por revisar, y volver a
+   reportar sus enlaces duplica ese trabajo. Las del anexo no se excluyen: esas
+   quedaron fuera del reporte por el tope y tienen que volver.
 2. **Corregir el criterio de cruce.** Compara la clasificación automática contra
    la "Decisión final" del inspector y separa falsos positivos de falsos
    negativos.
@@ -29,6 +32,7 @@ import json
 import os
 import re
 import sys
+from datetime import date
 
 from openpyxl import load_workbook
 
@@ -138,6 +142,29 @@ def _leer_archivo(ruta):
     return datos
 
 
+def _urls_de_hallazgos(ruta):
+    """Las URL de la hoja «Hallazgos» de un reporte, sin las del anexo."""
+    try:
+        wb = load_workbook(ruta, read_only=True, data_only=True)
+    except Exception:  # vacío o dañado: no hay enlaces que excluir
+        return []
+    try:
+        if "Hallazgos" not in wb.sheetnames:
+            return []
+        ws = wb["Hallazgos"]
+        c_url = _indice(ws).get("url")
+        if not c_url:
+            return []
+        urls = []
+        for fila in ws.iter_rows(min_row=2, values_only=True):
+            v = fila[c_url - 1] if len(fila) >= c_url else None
+            if v and str(v).strip():
+                urls.append(str(v).strip())
+        return urls
+    finally:
+        wb.close()
+
+
 def decisiones_de_reunion():
     """Los casos que se resolvieron en las reuniones de cierre, de todas las actas.
 
@@ -189,8 +216,12 @@ def decisiones_de_reunion():
     return casos
 
 
-def analizar(slug):
-    """Consolida el feedback de todos los archivos revisados de una categoría."""
+def analizar(slug, hoy=None):
+    """Consolida el feedback de todos los archivos revisados de una categoría.
+
+    `hoy` es el día de la corrida (por omisión, hoy): los reportes de ese día en
+    adelante no cuentan como anteriores.
+    """
     # Atribución tolerante, no glob por nombre exacto: los inspectores
     # renombran los archivos y dos de los doce de agosto quedaban fuera.
     atribuidos, no_atribuidos = rotacion.archivos_revisados(slug)
@@ -279,8 +310,29 @@ def analizar(slug):
         res["instrucciones_inspector"].append({"origen": caso["archivo"], "sobre": caso["nombre"], "texto": texto})
         res["decisiones_reunion"].append(caso)
 
+    # Lo que ya está en un reporte anterior de la categoría, aunque nadie lo haya
+    # revisado todavía: cada reporte es una planilla en línea, y volver a
+    # reportar sus enlaces le duplica el trabajo al inspector de la semana
+    # siguiente. Va al final para no cambiar cómo se atribuyen las actas, que
+    # usan solo lo revisado. No cuentan los reportes de hoy (repetir la corrida
+    # del día no puede dejar fuera sus propios hallazgos) ni el anexo, que quedó
+    # fuera por el tope y tiene que volver.
+    res["urls_de_reportes_sin_revisar"] = 0
+    cat = rotacion.POR_SLUG.get(slug)
+    hoy = hoy or date.today()
+    for ruta in (rotacion.reportes_previos(cat)["crudos"] if cat else []):
+        info = rotacion.atribuir_archivo(ruta)
+        if not info or not info["fecha"] or info["fecha"] >= hoy:
+            continue
+        for url in _urls_de_hallazgos(ruta):
+            if url not in vistas:
+                vistas.add(url)
+                res["urls_excluidas"].append(url)
+                res["urls_de_reportes_sin_revisar"] += 1
+
     res["total_urls_excluidas"] = len(res["urls_excluidas"])
-    res["hay_feedback"] = bool(archivos) or bool(res["decisiones_reunion"])
+    res["hay_feedback"] = (bool(archivos) or bool(res["decisiones_reunion"])
+                           or bool(res["urls_de_reportes_sin_revisar"]))
     return res
 
 
@@ -294,7 +346,8 @@ def imprimir(res):
         print(f"[{res['categoria']}] sin archivos revisados en revision/ — primera corrida de la categoría")
         return
     print(f"[{res['categoria']}] {len(res['archivos_revisados'])} archivo(s) revisado(s)")
-    print(f"  URLs ya evaluadas (excluir) : {res['total_urls_excluidas']}")
+    print(f"  URLs a excluir              : {res['total_urls_excluidas']}"
+          f"  ({res.get('urls_de_reportes_sin_revisar', 0)} de reportes que aún nadie revisa)")
     print(f"  Clasificaciones confirmadas : {res['confirmados']}")
     print(f"  Falsos positivos            : {len(res['falsos_positivos'])}  -> criterio demasiado estricto")
     print(f"  Falsos negativos            : {len(res['falsos_negativos'])}  -> criterio demasiado laxo")
@@ -319,12 +372,15 @@ def main():
     ap.add_argument("--categoria", help="slug de la categoría")
     ap.add_argument("--todas", action="store_true", help="todas las categorías")
     ap.add_argument("--json", action="store_true", help="salida JSON")
+    ap.add_argument("--fecha", help="día de la corrida, AAAA-MM-DD (por omisión, hoy): "
+                    "los reportes de ese día en adelante no cuentan como anteriores")
     args = ap.parse_args()
+    hoy = date.fromisoformat(args.fecha) if args.fecha else None
 
     if args.todas:
         sys.path.insert(0, os.path.join(RAIZ, "scripts"))
         import rotacion
-        todo = [analizar(c["slug"]) for c in rotacion.CATEGORIAS]
+        todo = [analizar(c["slug"], hoy) for c in rotacion.CATEGORIAS]
         if args.json:
             print(json.dumps(todo, ensure_ascii=False, indent=2))
         else:
@@ -336,7 +392,7 @@ def main():
         print("Falta --categoria (o usa --todas).", file=sys.stderr)
         return 1
 
-    res = analizar(args.categoria)
+    res = analizar(args.categoria, hoy)
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
     else:

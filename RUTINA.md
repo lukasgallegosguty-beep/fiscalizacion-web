@@ -83,14 +83,21 @@ con `create_trigger`), pero a cambio nació sin repositorio: ver arriba.
 usar cualquier herramienta de un conector incluido, escrituras incluidas, sin
 pedir permiso.
 
-**Las revisiones vuelven por correo, y eso no lo hace ninguna rutina.** El
-inspector responde el correo del reporte con el Excel completado, y un script de
-Google en la cuenta que envía los reportes lo sube a `revision/` y le confirma.
-Las rutinas no pueden hacerlo: un adjunto que pasa por el modelo llega corrupto.
-Instalación y mantención en `integraciones/recepcion-correo/INSTALAR.md`. El
-paso 6 de los tres prompts les pide a los inspectores responder el correo, así
-que ese texto se pega en las rutinas **después** de que el script esté andando:
-antes, las respuestas llegarían a un buzón que nadie procesa.
+**Los inspectores revisan en planillas en línea, y eso no lo hace ninguna
+rutina.** Un script de Google en la cuenta que envía los correos
+(qf.lukasgallegos@gmail.com) convierte cada reporte de `resultados/` en una
+planilla de Google, le manda el enlace al inspector y copia sola a `revision/`
+lo que él escribe. Lo mismo con el consolidado: llega a los tres como planilla y
+queda como acta. Las rutinas no pueden hacerlo, porque un binario que pasa por el
+modelo llega corrupto. Instalación y mantención en
+`integraciones/planillas-google/INSTALAR.md`.
+
+Con el script andando, el paso 6 de los bloques ya **no** le escribe al
+inspector: el correo con el enlace lo manda el script. El texto nuevo de los
+pasos 5 a 7 de los bloques, y del paso 6 del consolidado, se pega en las rutinas
+el mismo día en que el script queda instalado. Si se pega antes, al inspector no
+le avisa nadie. Si se pega después, le llegan dos correos por reporte: el de la
+rutina, que pide descargar y devolver el Excel, y el del script con la planilla.
 
 ## Calendario del mes
 
@@ -188,7 +195,9 @@ semana siguiente vuelve a tocar esa categoría. No hay estado que se descuadre.
 No se fiscaliza. El martes:
 
 - **07:30** — `scripts/consolidado.py` arma un Excel con todos los casos del mes
-  que sobrevivieron a la revisión, y se envía a los tres por correo.
+  que sobrevivieron a la revisión. La rutina les manda a los tres el resumen por
+  correo, y el script de las planillas, en un correo aparte, la planilla en línea
+  donde se completa durante la reunión.
 - **09:00** — reunión de una hora (evento en Google Calendar, con Meet) para
   decidir caso por caso qué se procesa como denuncia.
 
@@ -209,9 +218,12 @@ cuenta con registro vigente"*. Son verificaciones que no se pudieron completar,
 no productos ilegales. Van a la hoja «Discrepancias sin resolver», sin columna de
 denuncia.
 
-Tampoco entra lo que sigue sin revisar. Un reporte que el inspector no devolvió
+Tampoco entra lo que sigue sin revisar. Un reporte que el inspector no revisó
 no aporta casos, y eso se dice en la hoja «Cobertura del mes» y en el correo:
-es la diferencia entre *no hubo hallazgos* y *no alcanzamos a revisarlo*.
+es la diferencia entre *no hubo hallazgos* y *no alcanzamos a revisarlo*. Uno
+revisado a medias, en cambio, aporta lo que ya se decidió, y la cobertura lo
+marca «En parte»: cuenta como revisado cuando todas sus filas REGISTRADO y NO
+REGISTRADO tienen «Decisión final».
 
 ## Prompt — bloque 1
 
@@ -294,7 +306,11 @@ inspector. Si no hay hallazgos, pasa "hallazgos": [] igual.
 
 PASO 5 — PERSISTIR EN GIT (OBLIGATORIO)
 En este orden exacto:
-  1. python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos <incluidos> --detectados <total>
+  1. python3 scripts/rotacion.py --slot 1 --avanzar --hallazgos <incluidos> --detectados <total> --notas "<nota>"
+     De este registro sale el correo que recibe el inspector (paso 6). En <nota>
+     va, en una o dos frases y entre comillas dobles, lo que la planilla no dice:
+     cuántas ofertas se descartaron por jurisdicción y qué marketplaces
+     bloquearon el acceso. Si no hubo nada de eso, omite --notas.
   2. git add resultados/ historial/
   3. git commit -m "fiscalización: <categoria> <DD-MM-YYYY>"
   4. Empuja a main reintentando, porque el otro bloque del día corre casi a la
@@ -314,51 +330,30 @@ En este orden exacto:
      enterara. La única comprobación válida es:
        git fetch origin main -q
        git cat-file -e origin/main:resultados/<archivo>.xlsx && echo "OK en main"
-     Si NO está: averigua en qué rama quedó (git branch -r --contains HEAD),
-     dilo en la notificación con el nombre de la rama y arma el enlace del paso 6
-     con esa rama en lugar de main.
+     Si NO está: averigua en qué rama quedó (git branch -r --contains HEAD) y
+     dilo en la notificación con el nombre de la rama. Mientras el reporte no
+     esté en main, el script de las planillas no lo ve y al inspector no le
+     llega nada.
 Si el push falla, dilo en la notificación con el error textual. Nunca termines en
 silencio dando por hecho que se guardó.
 
-PASO 6 — AVISAR AL INSPECTOR
-Con el push ya confirmado, escribe por Gmail al inspector que devolvió el paso 1
-(campo inspector.email). No fijes el destinatario a mano: cambia según la semana
-del mes.
-
-Si el paso 1 devolvió "feriado" con un nombre, hoy es feriado legal: el correo va
-igual —para que el reporte esté en su bandeja cuando vuelva— pero ABRE el cuerpo
-diciendo que hoy es feriado (<nombre>), que la revisión no corre y que este
-reporte no se le va a contar como pendiente en el cierre del mes.
-
-NO ADJUNTES EL ARCHIVO. Manda un ENLACE de descarga.
-Adjuntarlo obliga a transcribir el binario en base64 y basta un carácter distinto
-para que el Excel llegue irrecuperable. Ya pasó el 24-08-2026: los dos reportes
-llegaron corruptos y el original estaba intacto en el repositorio.
-
-El enlace se arma con la ruta del archivo que acabas de empujar:
-  https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<archivo>.xlsx
-El repositorio es público: el inspector no necesita cuenta ni permisos.
-Si el push a main no se completó y el archivo quedó en otra rama, reemplaza main
-por el nombre de esa rama en la URL y dilo en el cuerpo.
-
-  Asunto: Fiscalización web DM — <Categoría> — <DD-MM-YYYY>
-  Cuerpo: el enlace de descarga bien visible; categoría y fecha; CUÁNTAS OFERTAS
-    SE REVISARON EN TOTAL y cuántas se incluyen (el tope es 10, informa el total
-    detectado para que dimensione el problema); desglose por clasificación sobre
-    el total; los 3 casos más relevantes; descartados por jurisdicción;
-    marketplaces que bloquearon el acceso. Si hubo anexo, aclara que esas
-    ofertas NO requieren revisión esta semana. Cierra recordando que debe
-    completar "Decisión final" y "Observaciones del inspector" y RESPONDER ESTE
-    MISMO CORREO con el Excel completado adjunto: se carga solo en el
-    repositorio y le llega una confirmación. Que no le cambie el nombre al
-    archivo; puede agregarle sus iniciales al final.
-Si el envío falla, informa el error. No deshagas el commit: el reporte ya está en
-el repositorio.
+PASO 6 — LA PLANILLA EN LÍNEA: NO LE ESCRIBAS AL INSPECTOR
+No le mandes correo al inspector. Con el reporte en main, el script de las
+planillas en línea (integraciones/planillas-google/, corre en Google cada 15
+minutos) lo convierte en una planilla de Google en la carpeta de la categoría y
+le escribe al inspector que quedó en historial/, con el enlace y el resumen:
+ofertas revisadas en total y cuántas se incluyen, desglose, los casos más
+relevantes, el anexo, el feriado si lo hay y tu nota del paso 5. El inspector
+trabaja en la planilla y lo que escribe vuelve solo a revision/. Si además le
+escribes tú, le llegan dos correos, y el tuyo le pediría algo que ya no se hace.
+Tu parte termina con el reporte confirmado en main y el registro del paso 5 bien
+hecho: de ahí sale ese correo.
 
 PASO 7 — NOTIFICACIÓN
 Informa: categoría y bloque; ofertas revisadas en total y cuántas se incluyeron
 tras el tope de 10; desglose por clasificación; los 3 casos más relevantes; descartados por jurisdicción; marketplaces
-bloqueados; confirmación del push; y a quién se envió el correo.
+bloqueados; confirmación del push; y a quién le llegará la planilla (el
+inspector del paso 1).
 ```
 
 ## Prompt — consolidado mensual
@@ -437,19 +432,23 @@ PASO 5 — PERSISTIR EN GIT
        git cat-file -e origin/main:resultados/<archivo>.xlsx && echo "OK en main"
 Si el push falla o el archivo no está en main: ALERTA, indicando en qué rama
 quedó (git branch -r --contains HEAD). No sigas al paso 6: sin el archivo en main
-el enlace del correo llegaría roto.
+el script de las planillas no lo ve, y los tres no reciben la planilla.
 
 PASO 6 — ENVIAR A LOS TRES
 Un solo correo por Gmail, con los tres destinatarios del paso 1 (campo
 "destinatarios") en el campo "para".
 
-NO ADJUNTES EL ARCHIVO. Manda el ENLACE de descarga:
-  https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<archivo>.xlsx
-El repositorio es público: no necesitan cuenta ni permisos.
+NO ADJUNTES EL ARCHIVO NI PONGAS ENLACE DE DESCARGA. El consolidado se completa
+en línea: el script de las planillas (integraciones/planillas-google/) lo
+convierte en una planilla de Google y se la manda a los tres en un correo
+aparte, «Planilla en línea — Consolidado mensual fiscalización web DM — <mes>
+<año>», en unos 15 minutos. Este correo es el resumen; esa planilla es la que se
+completa en la reunión.
 
   Asunto: Consolidado mensual fiscalización web DM — <mes> <año>
   Cuerpo:
-    - El enlace de descarga bien visible.
+    - Primero, que la planilla para la reunión llega en ese correo aparte, en
+      unos minutos, y que se completa ahí.
     - Cuántos casos trae y de dónde salen: hallazgos NO REGISTRADO confirmados
       por el inspector, y detecciones manuales de marketplace. Aclara que estas
       últimas van marcadas POR VERIFICAR porque no pasaron por el cruce contra
@@ -460,7 +459,9 @@ El repositorio es público: no necesitan cuenta ni permisos.
         * cuántos reportes se emitieron de los esperados;
         * cuántos quedaron SIN REVISAR (campo "pendientes_de_revision"). Esto va
           sí o sí: es la diferencia entre "no hubo hallazgos" y "no alcanzamos a
-          revisarlo";
+          revisarlo". Si "revision_incompleta" trae algo, di cuántos de esos
+          quedaron A MEDIAS y cuántas filas les faltan: lo que ya se decidió en
+          ellos sí entró al consolidado;
         * cuántos NO correspondía revisar por feriado (campo
           "excusados_feriado"), nombrando la fecha y el feriado. Un feriado no
           es un incumplimiento y el correo tiene que decirlo con esas palabras.
@@ -471,12 +472,13 @@ El repositorio es público: no necesitan cuenta ni permisos.
       nota de marketplace. El consolidado ya las dejó en una sola fila; se avisa
       para que en la reunión no se revisen de nuevo una por una.
     - Cierra recordando que en la reunión de las 09:00 hay que completar, en
-      cada caso, "Decisión final" (una de las cuatro de la lista: se genera
-      nueva alerta; falta información, se consultará; se descarta; ya procesado
-      anteriormente en una alerta) y "Justificación de la decisión", y que el
-      archivo completado se devuelve respondiendo este mismo correo con el
-      Excel adjunto: se carga solo en el repositorio.
-Si el envío falla: ALERTA (el archivo ya está en main; di el enlace en la alerta).
+      cada caso de la planilla en línea, "Decisión final" (una de las cuatro de
+      la lista: se genera nueva alerta; falta información, se consultará; se
+      descarta; ya procesado anteriormente en una alerta) y "Justificación de la
+      decisión", y que se guarda sola como acta del mes: no hay que devolver
+      nada.
+Si el envío falla: ALERTA (el archivo ya está en main; di el enlace en la alerta:
+https://github.com/lukasgallegosguty-beep/fiscalizacion-web/blob/main/resultados/<archivo>.xlsx).
 
 PASO 7 — REUNIÓN: CONFIRMAR HOY Y EXTENDER EL HORIZONTE
 Las reuniones están en Google Calendar como eventos INDIVIDUALES, uno por mes,

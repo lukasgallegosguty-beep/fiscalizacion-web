@@ -4,10 +4,11 @@ Repositorio de la rutina de Claude Code con la skill de **fiscalización web de
 dispositivos médicos** (ISP / ANDIM, Chile).
 
 Dos rutinas revisan **dos categorías por día hábil** (un bloque cada una), cruzan
-las ofertas encontradas en la web contra el listado ISP vigente, dejan el Excel en
-`resultados/` y lo envían por correo al inspector de turno. Los inspectores
-devuelven los archivos revisados respondiendo ese correo, un script los carga en
-`revision/`, y ese feedback entra en la corrida siguiente.
+las ofertas encontradas en la web contra el listado ISP vigente y dejan el Excel
+en `resultados/`. Un script de Google lo convierte en una **planilla en línea**,
+en una carpeta del Drive compartida con los tres inspectores, y le manda el
+enlace al inspector de turno. Lo que el inspector escribe en la planilla se copia
+solo a `revision/`, y ese feedback entra en la corrida siguiente.
 
 **Quién hace qué cada día, cada semana y en el cierre del mes:** `OPERACION.md`.
 
@@ -17,13 +18,13 @@ devuelven los archivos revisados respondiendo ese correo, un script los carga en
 .claude/skills/fiscalizacion-dm-web/   Skill (copia versionada, ver nota abajo)
 registros-isp/                         Excel oficiales del ISP, uno por categoría
 resultados/                            Reportes generados, uno por corrida
-revision/                              Excel ya revisados por los inspectores
+revision/                              Lo revisado: copias de las planillas en línea y Excel anteriores
 scripts/rotacion.py                    Qué categorías tocan hoy (calendario)
 scripts/feedback.py                    Lee revision/ y alimenta la búsqueda
 scripts/generar_reporte.py             Genera el Excel en el formato estándar
 scripts/preflight.sh                   Verifica que se va a poder guardar
-integraciones/recepcion-correo/        Carga en revision/ las revisiones que llegan por correo
-tests/                                 Pruebas: turnos del Planner, recepción por correo, pendientes
+integraciones/planillas-google/        Planillas en línea: publica los reportes y copia lo revisado
+tests/                                 Pruebas: turnos del Planner, planillas en línea, pendientes
 estado-rotacion.json                   Última categoría procesada + historial
 OPERACION.md                           Modus operandi: quién hace qué y cuándo
 RUTINA.md                              Prompt de la rutina programada
@@ -94,12 +95,15 @@ quedan así. El detalle está en `RUTINA.md`, sección «Calendario del mes», y
 `tests/test_turnos_planner.py` comprueba el calendario contra el Planner semana
 por semana.
 
-Cada Excel se envía por Gmail al inspector de turno apenas termina la búsqueda.
-El inspector completa **"Decisión final"** y **"Observaciones del inspector"** y
-**responde ese mismo correo con el Excel adjunto**: un script de Google lo carga
-solo en `revision/` y le confirma que quedó arriba. No hace falta cuenta de
-GitHub. Instalación y casos en `integraciones/recepcion-correo/INSTALAR.md`;
-subirlo a mano sigue funcionando (ver `revision/README.md`).
+Cada reporte le llega al inspector de turno como **planilla en línea**, unos 15
+minutos después de que termina la búsqueda. El inspector completa **"Decisión
+final"** y **"Observaciones del inspector"** directamente en la planilla, y un
+script de Google copia lo que escribe a `revision/`. No hay que descargar,
+devolver ni subir nada, y la búsqueda siguiente usa siempre lo último. El
+consolidado mensual llega igual, como planilla, y queda solo como acta.
+Instalación y casos en `integraciones/planillas-google/INSTALAR.md`. Los Excel
+de antes de las planillas se siguen pudiendo devolver por correo o subir a mano
+(ver `revision/README.md`).
 
 ## Objetivo de volumen
 
