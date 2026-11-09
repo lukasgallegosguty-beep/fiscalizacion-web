@@ -12,6 +12,10 @@ Resuelve tres cosas que el prompt por sí solo no garantiza:
    negativos.
 3. **Incorporar las indicaciones.** Recoge el texto libre de "Observaciones del
    inspector", en ambas hojas, como instrucciones para la corrida.
+4. **Respetar lo que se resolvió en el cierre.** Lee las actas de las reuniones
+   mensuales (el consolidado completado, en revision/): las URL de los casos de
+   la categoría quedan excluidas, y cada decisión con su justificación entra
+   como instrucción («ya procesado en alerta N°...», «no requiere registro»).
 
 Uso:
     python3 scripts/feedback.py --categoria agujas-hipodermicas
@@ -134,6 +138,55 @@ def _leer_archivo(ruta):
     return datos
 
 
+def decisiones_de_reunion():
+    """Los casos que se resolvieron en las reuniones de cierre, de todas las actas.
+
+    Un acta es el consolidado mensual que el equipo completó en la reunión y
+    devolvió a revision/. rotacion.archivos_revisados() la deja fuera a
+    propósito, porque no es la revisión de un reporte; pero lo que se decidió
+    ahí tiene que llegar a la búsqueda. Si no, un producto «ya procesado en
+    alerta N°731-26», o un guante de policloropreno que «no requiere registro
+    sanitario», vuelve a aparecer como hallazgo nuevo el mes siguiente.
+
+    Cada caso trae su slug, o None si en el acta quedó sin categoría: analizar()
+    lo atribuye entonces por la URL.
+    """
+    casos = []
+    for ruta in sorted(glob.glob(os.path.join(DIR_REVISION, "*.xlsx"))):
+        archivo = os.path.basename(ruta)
+        if not archivo.lower().startswith("consolidado_mensual"):
+            continue
+        m = re.search(r"(\d{2})[-_. ]?(\d{4})", archivo)
+        periodo = f"{m.group(1)}-{m.group(2)}" if m else archivo
+        wb = load_workbook(ruta, read_only=True, data_only=True)
+        if "Casos del mes" not in wb.sheetnames:
+            wb.close()
+            continue
+        ws = wb["Casos del mes"]
+        idx = _indice(ws)
+        c_cat, c_url, c_nom = idx.get("categoria"), idx.get("url"), idx.get("nombre de dm ofertado")
+        c_den = next((c for k, c in idx.items() if "denuncia" in k), None)
+        c_jus = next((c for k, c in idx.items() if k.startswith("justificacion")), None)
+        for fila in ws.iter_rows(min_row=2, values_only=True):
+            def val(c):
+                return fila[c - 1] if c and len(fila) >= c else None
+            decision = str(val(c_den) or "").strip()
+            if not decision:
+                continue  # sin decisión no hay nada que transmitir
+            categoria = str(val(c_cat) or "").strip()
+            casos.append({
+                "archivo": archivo,
+                "periodo": periodo,
+                "slug": rotacion.normalizar_slug(categoria) if categoria else None,
+                "nombre": val(c_nom),
+                "url": str(val(c_url) or "").strip(),
+                "decision": decision,
+                "justificacion": " ".join(str(val(c_jus) or "").split()),
+            })
+        wb.close()
+    return casos
+
+
 def analizar(slug):
     """Consolida el feedback de todos los archivos revisados de una categoría."""
     # Atribución tolerante, no glob por nombre exacto: los inspectores
@@ -152,6 +205,7 @@ def analizar(slug):
         "decisiones_no_interpretadas": [],
         "instrucciones_inspector": [],
         "obs_marketplace": [],
+        "decisiones_reunion": [],
         "archivos_no_atribuidos": no_atribuidos,
     }
 
@@ -205,8 +259,26 @@ def analizar(slug):
         for m in d["marketplace"]:
             res["obs_marketplace"].append({"origen": d["archivo"], **m})
 
+    # Lo resuelto en las reuniones de cierre. Va dentro de urls_excluidas e
+    # instrucciones_inspector, que los prompts de las rutinas ya obligan a
+    # seguir: así no hay que tocar los prompts para que se aplique.
+    for caso in decisiones_de_reunion():
+        if caso["slug"] != slug and not (caso["slug"] is None and caso["url"] in vistas):
+            continue
+        if caso["url"] and caso["url"] not in vistas:
+            vistas.add(caso["url"])
+            res["urls_excluidas"].append(caso["url"])
+        texto = (f"Ya resuelto en la reunión de cierre de {caso['periodo']}: "
+                 f"«{caso['nombre']}» ({caso['url'] or 'sin URL'}). "
+                 f"¿Se procesa como denuncia? {caso['decision']}.")
+        if caso["justificacion"]:
+            texto += f" Justificación: «{caso['justificacion']}»."
+        texto += " No lo vuelvas a reportar, y ten en cuenta ese criterio con publicaciones equivalentes."
+        res["instrucciones_inspector"].append({"origen": caso["archivo"], "sobre": caso["nombre"], "texto": texto})
+        res["decisiones_reunion"].append(caso)
+
     res["total_urls_excluidas"] = len(res["urls_excluidas"])
-    res["hay_feedback"] = bool(archivos)
+    res["hay_feedback"] = bool(archivos) or bool(res["decisiones_reunion"])
     return res
 
 
@@ -224,6 +296,7 @@ def imprimir(res):
     print(f"  Clasificaciones confirmadas : {res['confirmados']}")
     print(f"  Falsos positivos            : {len(res['falsos_positivos'])}  -> criterio demasiado estricto")
     print(f"  Falsos negativos            : {len(res['falsos_negativos'])}  -> criterio demasiado laxo")
+    print(f"  Decisiones de cierre        : {len(res['decisiones_reunion'])}  (actas en revision/)")
     if res["decisiones_no_interpretadas"]:
         print(f"  !! Decisiones NO interpretadas: {len(res['decisiones_no_interpretadas'])}")
         for d in res["decisiones_no_interpretadas"][:5]:

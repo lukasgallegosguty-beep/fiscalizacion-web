@@ -91,8 +91,11 @@ Sus otras hojas:
 | Cobertura del mes | Qué reportes se emitieron, cuáles volvieron revisados y cuántos casos aportó cada uno. |
 
 El consolidado completado se devuelve igual que una revisión: respondiendo su
-correo con el archivo, o subiéndolo a esta carpeta. Queda como acta del mes; la
-rutina no lo cuenta como la revisión de un reporte.
+correo con el archivo, o subiéndolo a esta carpeta. Queda como acta del mes. La
+rutina no lo cuenta como la revisión de un reporte, pero sí usa lo que se
+decidió: las URL de sus casos no se vuelven a reportar, y cada decisión con su
+justificación («ya procesado en alerta N°…», «no requiere registro sanitario»)
+llega como instrucción a la búsqueda siguiente de esa categoría.
 
 ## Verificar qué está leyendo la rutina
 
