@@ -563,7 +563,12 @@ def generar(anio, mes, datos, plan, salida):
             estado = (f"Feriado ({b['feriado']}): no correspondía revisión. "
                       "El reporte queda en el repositorio sin aportar casos.")
         elif not arch:
-            estado = "Reporte emitido pero AÚN NO devuelto por el inspector: no aporta casos a este consolidado."
+            estado = "Reporte emitido pero AÚN SIN REVISAR por el inspector: no aporta casos a este consolidado."
+        elif b.get("sin_decidir"):
+            # Una planilla en línea se copia a revision/ apenas el inspector
+            # escribe algo: puede estar a medias. Lo decidido aporta igual.
+            estado = (f"Revisión a medias: {b['sin_decidir']} fila(s) REGISTRADO o NO REGISTRADO sin «Decisión final». "
+                      f"Lo ya decidido aportó {casos_n} caso(s).")
         elif casos_n:
             estado = f"Revisado. Aportó {casos_n} caso(s)."
         else:
@@ -572,7 +577,8 @@ def generar(anio, mes, datos, plan, salida):
             "fecha": b["fecha_dmy"], "semana": f"Semana {b['semana_mes']}",
             "categoria": b["categoria"], "inspector": b["inspector"],
             "emitido": "Sí" if b["reporte"] else "No",
-            "revisado": "Sí" if arch else ("No (feriado)" if b.get("feriado") else "No"),
+            "revisado": ("En parte" if b.get("sin_decidir") else "Sí") if arch
+                        else ("No (feriado)" if b.get("feriado") else "No"),
             "casos": casos_n, "estado": estado,
         })
 
@@ -600,7 +606,7 @@ def generar(anio, mes, datos, plan, salida):
             c.border = BORDE
             if n % 2 == 0:
                 c.fill = PatternFill("solid", fgColor=FILA_ALT)
-        if item["revisado"] == "No":
+        if item["revisado"] in ("No", "En parte"):
             ws2.cell(row=n, column=6).fill = PatternFill("solid", fgColor=NARANJA)
 
     # Al final, para que las hojas visibles queden en el mismo orden de siempre.
@@ -643,6 +649,7 @@ def resumir(anio, mes, datos, plan, salida):
         "reportes_emitidos": plan["reportes_emitidos"],
         "reportes_esperados": len(plan["bloques_esperados"]),
         "pendientes_de_revision": plan["sin_revisar"],
+        "revision_incompleta": plan["revision_incompleta"],
         "excusados_feriado": plan["excusados_feriado"],
         "no_emitidos": plan["sin_emitir"],
         "urls_duplicadas_omitidas": datos["duplicados"],
@@ -694,6 +701,10 @@ def main():
         print(f"  PENDIENTES de revisión ({len(resumen['pendientes_de_revision'])}) — no aportan casos:")
         for a in resumen["pendientes_de_revision"]:
             print(f"    - {a}")
+    if resumen["revision_incompleta"]:
+        print(f"  De esos, revisados a medias ({len(resumen['revision_incompleta'])}) — lo decidido sí aporta casos:")
+        for b in resumen["revision_incompleta"]:
+            print(f"    - {b['archivo']}: {b['sin_decidir']} fila(s) sin «Decisión final»")
     if resumen["decisiones_sin_tomar"]:
         print(f"  Filas sin «Decisión final» en los archivos devueltos: {resumen['decisiones_sin_tomar']}")
     if resumen["urls_duplicadas_omitidas"]:

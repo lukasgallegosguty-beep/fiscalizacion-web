@@ -1,8 +1,10 @@
 'use strict';
-// Tests de recepcion.gs, con Gmail, GitHub y el resto de Apps Script simulados.
+// Tests de la recepción por correo de planillas.gs (el respaldo para devolver un
+// Excel), con Gmail, GitHub y el resto de Apps Script simulados. La publicación
+// de planillas y su copia a revision/ están en planillas.test.js.
 //
 // Correr desde la raíz del repositorio:
-//     node --test integraciones/recepcion-correo/recepcion.test.js
+//     node --test integraciones/planillas-google/*.test.js
 // python3 -m unittest discover -s tests también los corre, si hay Node.
 
 const test = require('node:test');
@@ -12,7 +14,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 
-const CODIGO = fs.readFileSync(path.join(__dirname, 'recepcion.gs'), 'utf8');
+const CODIGO = fs.readFileSync(path.join(__dirname, 'planillas.gs'), 'utf8');
 const YO = 'qf.lukasgallegos@gmail.com';
 const REPO = 'lukasgallegosguty-beep/fiscalizacion-web';
 const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -305,7 +307,7 @@ test('GitHub caído: el correo queda pendiente, se avisa una vez y se carga cuan
   assert.equal(resp.respuestas.length, 0, 'no se confirma lo que no se cargó');
   assert.equal(estado.alertas.length, 1);
   assert.equal(estado.alertas[0].para, 'lgallegos@ispch.cl');
-  assert.match(estado.alertas[0].asunto, /^ALERTA — recepción de revisiones/);
+  assert.match(estado.alertas[0].asunto, /^ALERTA — planillas en línea fiscalización web DM: no se pudo cargar/);
   assert.match(estado.alertas[0].cuerpo, /GitHub respondió 503/);
 
   ctx.procesarRevisiones();
@@ -456,22 +458,37 @@ test('olvida lo procesado hace más de 60 días y conserva lo reciente', () => {
   assert.deepEqual(Object.keys(estado.props).sort(), ['GITHUB_TOKEN', 'OTRA', 'procesado:b']);
 });
 
-test('instalar: comprueba el permiso, deja un solo activador cada 15 minutos y crea las etiquetas', () => {
-  const { ctx, estado } = entorno({ github: { 'revision/README.md': '# revision' } });
-  ctx.instalar();
-  ctx.instalar();
-  assert.equal(estado.activadores.length, 1);
-  assert.equal(estado.activadores[0].getHandlerFunction(), 'procesarRevisiones');
-  assert.equal(estado.activadores[0].minutos, 15);
-  assert.ok(estado.etiquetas.has('Fiscalización web/Revisión cargada'));
-  assert.ok(estado.etiquetas.has('Fiscalización web/Revisión con problema'));
-  assert.equal(estado.repo.size, 1, 'la prueba de permiso no escribe nada');
-  ctx.desinstalar();
-  assert.equal(estado.activadores.length, 0);
-});
-
 test('probarConexion falla con un mensaje claro si el token no puede escribir', () => {
   const { ctx, estado } = entorno({ github: { 'revision/README.md': '# revision' } });
   estado.fallaGithub = 403;
   assert.throws(() => ctx.probarConexion(), /negó el permiso \(403\)/);
+});
+
+test('un Excel de un reporte que ya tiene planilla: no se carga y se le contesta con el enlace', () => {
+  // Con el nombre del reporte, o renombrado sin pistas («Libro1.xlsx»): en los
+  // dos casos el reporte es el del hilo, y ese reporte se trabaja en línea.
+  const planilla = { id: 'p1', url: 'https://docs.google.com/spreadsheets/d/p1/edit', sha: 'abc', avisado: true };
+  for (const nombre of ['Fiscalizacion_Web_DM_autotest-vih_09-11-2026 EJMS.xlsx', 'Libro1.xlsx']) {
+    const resp = respuestaDeEmilio([{ nombre }]);
+    const { ctx, estado } = entorno({
+      hilos: [hilo(reporte(REPORTE, ASUNTO), resp)],
+      props: { ['planilla:' + REPORTE]: JSON.stringify(planilla) },
+    });
+    assert.deepEqual(plano(ctx.procesarRevisiones()), { cargados: 0, problemas: 1, pendientes: 0, retenidos: 0 }, nombre);
+    assert.equal(estado.puts.length, 0, nombre);
+    assert.match(resp.respuestas[0], /se trabaja en su planilla en línea/, nombre);
+    assert.ok(resp.respuestas[0].includes(planilla.url), nombre);
+    assert.doesNotMatch(resp.respuestas[0], /Para que se cargue solo/, nombre);
+  }
+});
+
+test('un reporte que volvió por correo antes de tener planilla se sigue cargando como siempre', () => {
+  // El registro dice que ese reporte no tiene planilla: la guardia no aplica.
+  const resp = respuestaDeEmilio([{ nombre: 'Fiscalizacion_Web_DM_autotest-vih_09-11-2026 EJMS.xlsx' }]);
+  const { ctx, estado } = entorno({
+    hilos: [hilo(reporte(REPORTE, ASUNTO), resp)],
+    props: { ['planilla:' + REPORTE]: JSON.stringify({ sha: 'abc', revisadoPorCorreo: true }) },
+  });
+  assert.deepEqual(plano(ctx.procesarRevisiones()), { cargados: 1, problemas: 0, pendientes: 0, retenidos: 0 });
+  assert.equal(estado.puts.length, 1);
 });

@@ -55,8 +55,11 @@ class DecisionesDeReunion(unittest.TestCase):
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.originales = (feedback.DIR_REVISION, rotacion.DIR_REVISION)
+        self.originales = (feedback.DIR_REVISION, rotacion.DIR_REVISION, rotacion.DIR_RESULTADOS)
         feedback.DIR_REVISION = rotacion.DIR_REVISION = self.tmp.name
+        # resultados/ vacío: los reportes sin revisar también excluyen sus URL,
+        # y aquí solo se prueban las revisiones y las actas.
+        rotacion.DIR_RESULTADOS = os.path.join(self.tmp.name, "resultados")
         d = self.tmp.name
         revision(os.path.join(d, "Fiscalizacion_Web_DM_agujas-hipodermicas_05-10-2026 EJMS.xlsx"),
                  ["https://tienda.cl/a"])
@@ -73,7 +76,7 @@ class DecisionesDeReunion(unittest.TestCase):
         ])
 
     def tearDown(self):
-        feedback.DIR_REVISION, rotacion.DIR_REVISION = self.originales
+        feedback.DIR_REVISION, rotacion.DIR_REVISION, rotacion.DIR_RESULTADOS = self.originales
         self.tmp.cleanup()
 
     def test_las_decisiones_llegan_a_su_categoria(self):
