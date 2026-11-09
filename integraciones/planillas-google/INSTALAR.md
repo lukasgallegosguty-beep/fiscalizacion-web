@@ -186,8 +186,9 @@ rutina le pide descargar y devolver el Excel.
 - En la rutina **«Fiscalización web — consolidado mensual»**: el PASO 5 (última
   línea) y el PASO 6, igual, desde `RUTINA.md`. Esa la puede cambiar Claude desde
   una sesión: pídeselo.
-- Sube de nuevo `SKILL.md` a la skill en claude.ai: su «Paso 5-ter» ya no le pide
-  a la rutina escribirle al inspector.
+- `SKILL.md` se puede subir a la skill en claude.ai cuando quieras, antes o
+  después de esto: su «Paso 5-ter» hace lo que diga el paso 6 de la rutina, con
+  el texto viejo o con el nuevo.
 
 ### 9. Avisar al equipo
 
