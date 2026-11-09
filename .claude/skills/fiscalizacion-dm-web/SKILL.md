@@ -310,34 +310,49 @@ ser lo único que hay de Mercado Libre, que le responde 403 a la rutina. Pero
 entra marcado **POR VERIFICAR**: nadie lo cruzó contra el listado ISP todavía, y
 el archivo tiene que decirlo en vez de mezclarlo con lo confirmado.
 
-### Paso 5-ter — La planilla en línea: no escribirle al inspector
+### Paso 5-ter — El correo al inspector: lo decide el paso 6 de la rutina
 
-La rutina **no** le escribe al inspector. Con el reporte en `main`, el script de
-las planillas en línea (`integraciones/planillas-google/`, corre en la cuenta de
-Google cada 15 minutos) lo convierte en una planilla de Google en la carpeta de
-la categoría, compartida con los tres inspectores, y le manda al inspector que
-quedó en `historial/` el enlace con el resumen: ofertas revisadas en total y
-cuántas se incluyen, desglose, los casos más relevantes, el anexo y el feriado si
-lo hay. El inspector trabaja en la planilla, y lo que escribe vuelve solo a
-`revision/`. Si la rutina también le escribe, le llegan dos correos, y el de la
-rutina le pediría algo que ya no se hace.
+Cómo le llega el reporte al inspector depende de si ya está instalado el script
+de las planillas en línea (`integraciones/planillas-google/`). Lo que manda es el
+**paso 6 del prompt de la rutina**: seguirlo tal como está escrito. Las rutinas
+cambian ese texto el mismo día en que se instala el script, y esta skill tiene
+que servir antes y después.
 
-Lo que sí le toca a la rutina es dejar bien el registro de `rotacion.py
---avanzar`, porque de ahí sale ese correo: el inspector, las cifras
-(`--hallazgos` y `--detectados`) y, en `--notas`, lo que la planilla no dice:
-cuántas ofertas se descartaron por jurisdicción y qué marketplaces bloquearon el
-acceso.
+**Si el paso 6 dice que no se le escribe al inspector** (el script ya está
+instalado), no mandar ningún correo. Con el reporte en `main`, el script lo
+convierte en una planilla de Google en la carpeta de la categoría, compartida con
+los tres inspectores, y le manda al inspector que quedó en `historial/` el enlace
+con el resumen. Si la rutina también le escribe, le llegan dos correos, y el de
+la rutina le pediría algo que ya no se hace. Lo que sí le toca a la rutina es
+dejar bien el registro de `rotacion.py --avanzar`, porque de ahí sale ese correo:
+el inspector, las cifras (`--hallazgos` y `--detectados`) y, en `--notas`, lo que
+la planilla no dice: cuántas ofertas se descartaron por jurisdicción y qué
+marketplaces bloquearon el acceso.
 
-**Nunca adjuntar el Excel a un correo.** Adjuntarlo obliga a transcribir su
-contenido binario en base64 dentro de la llamada a la herramienta, y una sola
-diferencia de carácter en esos miles de caracteres deja el archivo
-irrecuperable. Ya ocurrió: los dos reportes del 24-08-2026 llegaron corruptos por
-esta vía, con el original intacto en el repositorio. Por eso los archivos pasan
-entre GitHub y Google por el script, sin el modelo de por medio.
+**Si el paso 6 pide escribirle** (el script todavía no está instalado), mandarle
+el correo después de confirmar el push, uno por bloque, al inspector que
+devuelve `scripts/rotacion.py` en el campo `inspector`. Va con el **enlace** de
+descarga del Excel, que se arma con la ruta del archivo ya empujado:
 
-Si el push a `main` no llegó a completarse, el script no ve el reporte y al
-inspector no le llega nada: decirlo en la notificación con el nombre de la rama
-donde quedó.
+```
+https://github.com/lukasgallegosguty-beep/fiscalizacion-web/raw/main/resultados/<nombre-del-archivo>.xlsx
+```
+
+El repositorio es público, así que el inspector no necesita cuenta de GitHub ni
+permisos. El asunto es `Fiscalización web DM — <Categoría> — <DD-MM-YYYY>`; el
+cuerpo, el que pide el paso 6. Si el push a `main` no llegó a completarse,
+enlazar la rama donde sí quedó el archivo, reemplazando `main` por el nombre de
+esa rama en la URL, y decirlo en el cuerpo.
+
+**Nunca adjuntar el Excel a un correo**, en ninguno de los dos casos. Adjuntarlo
+obliga a transcribir su contenido binario en base64 dentro de la llamada a la
+herramienta, y una sola diferencia de carácter en esos miles de caracteres deja
+el archivo irrecuperable. Ya ocurrió: los dos reportes del 24-08-2026 llegaron
+corruptos por esta vía, con el original intacto en el repositorio.
+
+Si el push a `main` no llegó a completarse, decirlo en la notificación con el
+nombre de la rama donde quedó: el script de las planillas no ve los reportes que
+no están en `main`.
 
 Si el envío falla, informarlo en la notificación con el error. No es motivo para
 deshacer el commit: el reporte ya está en el repositorio.
@@ -717,11 +732,12 @@ Después de presentar el Excel, proporciona un resumen conciso en el chat que in
 
 ## Ciclo de retroalimentación
 
-El feedback dejó de ser manual: los inspectores revisan cada reporte en su
-planilla en línea, un script la copia sola a la carpeta `revision/` del
-repositorio unos minutos después de que dejan de editar (ver
-`integraciones/planillas-google/INSTALAR.md`) y `scripts/feedback.py` la lee al
-inicio de cada corrida (ver "Paso 0-ter"). Las URL ya reportadas se excluyen
+El feedback dejó de ser manual. Con el script de las planillas en línea
+instalado (ver `integraciones/planillas-google/INSTALAR.md`), los inspectores
+revisan cada reporte en su planilla y el script la copia sola a la carpeta
+`revision/` unos minutos después de que dejan de editar; antes de eso, los Excel
+revisados llegan a esa carpeta a mano. En los dos casos, `scripts/feedback.py` la
+lee al inicio de cada corrida (ver "Paso 0-ter"). Las URL ya reportadas se excluyen
 automáticamente y las correcciones del inspector ajustan el criterio de cruce. También lee las actas de las reuniones de cierre:
 las instrucciones que empiezan con «Ya resuelto en la reunión de cierre» son
 decisiones del equipo sobre un caso concreto (ya alertado, no requiere registro,
