@@ -24,15 +24,17 @@ sys.path.insert(0, os.path.join(os.path.dirname(AQUI), "scripts"))
 import feedback  # noqa: E402
 import rotacion  # noqa: E402
 
-CABECERA_ACTA = ["Categoría", "Fecha de detección", "Nombre de DM ofertado", "URL",
-                 "Origen del caso", "¿Se procesa como denuncia?", "Justificación de la decisión"]
+def cabecera_acta(decision="Decisión final"):
+    return ["Categoría", "Fecha de detección", "Nombre de DM ofertado", "URL",
+            "Origen del caso", decision, "Justificación de la decisión"]
 
 
-def acta(ruta, casos):
+def acta(ruta, casos, decision="¿Se procesa como denuncia?"):
+    """Por omisión, el formato de las actas hasta octubre de 2026 (SÍ/NO)."""
     wb = Workbook()
     ws = wb.active
     ws.title = "Casos del mes"
-    ws.append(CABECERA_ACTA)
+    ws.append(cabecera_acta(decision))
     for c in casos:
         ws.append(c)
     wb.create_sheet("Cobertura del mes")
@@ -89,6 +91,16 @@ class DecisionesDeReunion(unittest.TestCase):
         self.assertEqual(len(r["decisiones_reunion"]), 1)
         self.assertIn("alerta N°054/26", r["instrucciones_inspector"][0]["texto"])
         self.assertTrue(r["hay_feedback"], "una categoría con decisiones de cierre sí tiene feedback")
+
+    def test_lee_el_formato_nuevo(self):
+        """Desde noviembre de 2026 la columna es «Decisión final», con una de cuatro opciones."""
+        acta(os.path.join(self.tmp.name, "Consolidado_Mensual_DM_11-2026.xlsx"), [
+            ["Autotest VIH", "02-11-2026", "Autotest", "https://vih.cl/e", "Rutina",
+             "Ya procesado anteriormente en una alerta", "Alerta N°054/26."],
+        ], decision="Decisión final")
+        r = feedback.analizar("autotest-vih")
+        self.assertEqual(r["urls_excluidas"], ["https://vih.cl/c", "https://vih.cl/e"])
+        self.assertIn("Decisión: Ya procesado anteriormente en una alerta.", r["instrucciones_inspector"][1]["texto"])
 
     def test_el_acta_sigue_sin_contar_como_revision(self):
         r = feedback.analizar("agujas-hipodermicas")

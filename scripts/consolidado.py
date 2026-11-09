@@ -4,7 +4,8 @@ Consolidado mensual de la fiscalización web de DM (ISP/ANDIM).
 
 Cierra el mes: junta en un solo Excel los casos del mes que YA pasaron por un
 inspector y quedaron en pie, para que los tres decidan en la reunión de la
-última semana del mes cuáles se procesan como denuncia. Qué semanas forman el
+última semana del mes qué se hace con cada uno: una de las cuatro DECISIONES
+de abajo. Qué semanas forman el
 mes y quién revisó cada una lo decide scripts/rotacion.py, no este script.
 
 Qué entra (y de dónde):
@@ -46,7 +47,7 @@ from urllib.parse import urlparse
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import get_column_letter, quote_sheetname
 from openpyxl.worksheet.datavalidation import DataValidation
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -67,6 +68,21 @@ ORIGEN_CONFIRMADO = "Hallazgo NO REGISTRADO confirmado por el inspector"
 ORIGEN_DISCREPANCIA = "La rutina lo dio por REGISTRADO y el inspector marcó Incorrecto"
 ORIGEN_MANUAL = "Detectado por el inspector en revisión manual del marketplace"
 
+# Lo que se decide en la reunión de cierre sobre cada caso. Es una lista
+# cerrada para que las cifras del reporte mensual salgan directo de la columna
+# (nuevas alertas, refuerzo de alertas ya publicadas, consultas pendientes y
+# descartados). El detalle, como el número de alerta o a quién se consulta, va
+# en «Justificación de la decisión».
+DECISIONES = (
+    "Se genera nueva alerta",
+    "Falta información, se consultará",
+    "Se descarta",
+    "Ya procesado anteriormente en una alerta",
+)
+# Hoja oculta con las opciones de la lista desplegable. Van ahí y no escritas en
+# la regla porque una lleva coma, y en una lista escrita la coma separa opciones.
+HOJA_LISTAS = "Listas"
+
 COLUMNAS = [
     ("Categoría", 30, "categoria"),
     ("Fecha de detección", 14, "fecha"),
@@ -83,7 +99,7 @@ COLUMNAS = [
     ("Veces que el inspector lo listó", 14, "veces_listada"),
     ("Inspector que revisó", 22, "inspector"),
     ("Observaciones del inspector", 56, "obs_inspector"),
-    ("¿Se procesa como denuncia?", 22, "denuncia"),
+    ("Decisión final", 34, "decision_reunion"),
     ("Justificación de la decisión", 60, "justificacion"),
 ]
 
@@ -270,7 +286,7 @@ def _leer(info):
                 # El inspector contradijo a la rutina, pero eso no basta para
                 # denunciar: en agosto los cinco casos así eran enlaces caídos o
                 # publicaciones sin imágenes suficientes para verificar. Van a
-                # una hoja aparte, sin columna de denuncia.
+                # una hoja aparte, sin columna de decisión.
                 discrepancias.append({
                     "categoria": cat["nombre"], "fecha": fecha,
                     "nombre_dm": v(campos["nombre_dm"]),
@@ -304,7 +320,7 @@ def _leer(info):
                 "observaciones": v(campos["observaciones"]),
                 "origen": origen, "inspector": quien,
                 "obs_inspector": v(campos["obs"]),
-                "denuncia": "", "justificacion": "",
+                "decision_reunion": "", "justificacion": "",
                 "_slug": info["slug"], "_archivo": info["archivo"],
             })
 
@@ -357,7 +373,7 @@ def _leer(info):
                     # Solo el ítem de ESTE enlace. Si no se pudo segmentar, el
                     # bloque completo: perder la nota es peor que repetirla.
                     "obs_inspector": item or obs,
-                    "denuncia": "", "justificacion": "",
+                    "decision_reunion": "", "justificacion": "",
                     "_slug": info["slug"], "_archivo": info["archivo"],
                 })
     wb.close()
@@ -461,11 +477,11 @@ def generar(anio, mes, datos, plan, salida):
             "reportes aún no fueron devueltos por los inspectores."
         ),
         "origen": "", "inspector": "", "obs_inspector": "",
-        "denuncia": "", "justificacion": "",
+        "decision_reunion": "", "justificacion": "",
     }]
 
     i_clasif = next(i for i, c in enumerate(COLUMNAS, 1) if c[2] == "clasificacion")
-    i_den = next(i for i, c in enumerate(COLUMNAS, 1) if c[2] == "denuncia")
+    i_den = next(i for i, c in enumerate(COLUMNAS, 1) if c[2] == "decision_reunion")
     i_jus = next(i for i, c in enumerate(COLUMNAS, 1) if c[2] == "justificacion")
 
     for n, item in enumerate(filas, start=2):
@@ -491,16 +507,17 @@ def generar(anio, mes, datos, plan, salida):
     ws.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNAS))}{ultima}"
 
     if casos:
-        dv = DataValidation(type="list", formula1='"SÍ,NO"', allow_blank=True,
-                            showDropDown=False, showErrorMessage=True,
+        dv = DataValidation(type="list", formula1=f"{quote_sheetname(HOJA_LISTAS)}!$A$1:$A${len(DECISIONES)}",
+                            allow_blank=True, showDropDown=False, showErrorMessage=True,
                             errorTitle="Valor no válido",
-                            error="Responde SÍ o NO: ¿se procesa este caso como denuncia?")
+                            error="Elige una de las cuatro decisiones de la lista. El detalle "
+                                  "va en «Justificación de la decisión».")
         ws.add_data_validation(dv)
         letra = get_column_letter(i_den)
         dv.add(f"{letra}2:{letra}{ultima}")
 
     # --- Discrepancias: el inspector contradijo a la rutina, pero eso NO es
-    # una infracción confirmada. Sin columna de denuncia, a propósito.
+    # una infracción confirmada. Sin columna de decisión, a propósito.
     if datos["discrepancias"]:
         ws3 = wb.create_sheet("Discrepancias sin resolver")
         _encabezados(ws3, COLUMNAS_DISCREPANCIA)
@@ -586,9 +603,23 @@ def generar(anio, mes, datos, plan, salida):
         if item["revisado"] == "No":
             ws2.cell(row=n, column=6).fill = PatternFill("solid", fgColor=NARANJA)
 
+    # Al final, para que las hojas visibles queden en el mismo orden de siempre.
+    agregar_hoja_de_decisiones(wb)
+
     os.makedirs(os.path.dirname(os.path.abspath(salida)), exist_ok=True)
     wb.save(salida)
     return salida
+
+
+def agregar_hoja_de_decisiones(wb):
+    """La hoja oculta de donde la lista desplegable de «Decisión final» toma sus opciones."""
+    if HOJA_LISTAS in wb.sheetnames:
+        del wb[HOJA_LISTAS]
+    wl = wb.create_sheet(HOJA_LISTAS)
+    for i, d in enumerate(DECISIONES, 1):
+        wl.cell(row=i, column=1, value=d)
+    wl.sheet_state = "hidden"
+    return wl
 
 
 def resumir(anio, mes, datos, plan, salida):

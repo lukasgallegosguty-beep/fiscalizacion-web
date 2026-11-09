@@ -76,10 +76,22 @@ para investigación manual, no hallazgos clasificados.
 
 El martes de la última semana del mes llega por correo un Excel distinto,
 `Consolidado_Mensual_DM_MM-AAAA.xlsx`, con los casos del mes que sobrevivieron a
-la revisión. Ese archivo **no** lleva "Decisión final": lleva
-**«¿Se procesa como denuncia?»** (SÍ / NO, con lista desplegable) y
-**«Justificación de la decisión»**, y se completan entre los tres en la reunión
-de las 09:00.
+la revisión. Se completa entre los tres en la reunión de las 09:00, en dos
+columnas:
+
+- **«Decisión final»**, una de cuatro opciones de una lista desplegable:
+  - Se genera nueva alerta
+  - Falta información, se consultará
+  - Se descarta
+  - Ya procesado anteriormente en una alerta
+- **«Justificación de la decisión»**: el detalle, como el número de alerta, a
+  quién se consulta o por qué se descarta.
+
+No es la misma «Decisión final» de los reportes diarios. En el reporte diario,
+el inspector dice si la rutina acertó (Correcto / Incorrecto); en el
+consolidado, los tres deciden qué se hace con el caso. Hasta octubre de 2026 la
+columna se llamaba «¿Se procesa como denuncia?» (SÍ / NO); las actas de
+septiembre y octubre ya están pasadas a las cuatro opciones.
 
 Sus otras hojas:
 

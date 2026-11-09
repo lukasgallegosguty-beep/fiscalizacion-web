@@ -105,8 +105,12 @@ el martes por la mañana no entra al consolidado.
 
 **Martes de cierre.**
 - Temprano llega el consolidado; la reunión es a las 09:00.
-- En la reunión se completan «¿Se procesa como denuncia?» y «Justificación de la
-  decisión».
+- En la reunión se completan, caso por caso:
+  - **«Decisión final»**: una de cuatro opciones (se genera nueva alerta; falta
+    información, se consultará; se descarta; ya procesado anteriormente en una
+    alerta);
+  - **«Justificación de la decisión»**: el detalle, como el número de alerta o
+    a quién se consulta.
 - Después, se responde el correo del consolidado con el archivo completado.
   Queda como acta del mes en `revision/`, y sus decisiones entran en las
   búsquedas siguientes. Por eso conviene que cada justificación sea clara y no
