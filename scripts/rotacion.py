@@ -13,25 +13,34 @@ vuelve a tocar lo mismo que este lunes.
     Jueves     1) Jeringas hipodérmicas        2) Kits VIH uso profesional
     Viernes    1) Preservativos masculinos     2) Preservativos femeninos
 
-El mes se organiza en semanas de búsqueda más una de cierre:
+El mes se organiza en semanas de búsqueda más una de cierre, igual que en el plan
+de Microsoft Planner del equipo (noviembre de 2026 a diciembre de 2027):
 
     Semana 1     búsqueda   revisa Emilio Millán
     Semana 2     búsqueda   revisa Lukas Gallegos
     Semana 3     búsqueda   revisa María Inés Medina
-    (Semana 4)   búsqueda   solo en los meses de 5 semanas; vuelve a Emilio
+    (Semana 4)   búsqueda   solo en los meses de 5 semanas; quién revisa lo dice
+                 la tabla CUARTA_SEMANA, y fuera de ella le toca a Emilio
     ÚLTIMA       SIN BÚSQUEDA. El martes se emite el consolidado mensual a los
                  tres y se reúnen a las 09:00 a resolver qué se denuncia.
 
-Una semana pertenece al mes donde cae la MAYORÍA de sus días hábiles, que es el
-mes de su MIÉRCOLES. La semana del lunes 31-08-2026 tiene cuatro de sus cinco
-días en septiembre, así que es la semana 1 de septiembre, no la quinta de agosto.
+A qué mes pertenece una semana de lunes a viernes (ver periodo_de_semana):
 
-Antes la semana pertenecía al mes de su lunes, y eso dejaba semanas muertas: la
-del 31-08 quedó fuera del ciclo y el miércoles 02-09 las rutinas no fiscalizaron
-nada. Con la regla del miércoles esa semana entra donde corresponde.
+  - Desde el periodo 2026-11, al mes de su VIERNES, que es como la cuenta el
+    Planner. La semana del lunes 28-12-2026 termina el viernes 01-01-2027: es la
+    semana 1 de enero, no la quinta de diciembre.
+  - Hasta 2026-10, al mes de su MIÉRCOLES, donde cae la mayoría de sus días
+    hábiles. Septiembre y octubre de 2026 se ejecutaron con esa regla y tienen
+    que seguir dando lo mismo: de ella dependen los consolidados ya emitidos y a
+    qué mes se atribuye cada revisión devuelta.
+
+Antes de la regla del miércoles la semana pertenecía al mes de su lunes, y eso
+dejaba semanas muertas: la del 31-08-2026 quedó fuera del ciclo y el miércoles
+02-09 las rutinas no fiscalizaron nada.
 
 NO se puede garantizar que todo mes tenga exactamente 4 semanas: 12 x 4 = 48 y el
-año tiene 52. Cuatro veces al año un mes tiene cinco. Por eso el cierre no es "la
+año tiene 52 o 53. Cuatro o cinco veces al año un mes tiene cinco (en 2027 son
+cinco: enero, abril, julio, octubre y diciembre). Por eso el cierre no es "la
 semana 4" sino LA ÚLTIMA semana del mes: así el mes siempre cierra al final y
 ninguna semana queda sin trabajo.
 
@@ -154,12 +163,29 @@ DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "doming
 # Inspector que revisa los hallazgos, según el número de semana DEL MES. No es
 # una rotación acumulativa: cada mes vuelve a empezar en Emilio, así que un mes
 # con una corrida caída no descoloca la asignación del mes siguiente.
-INSPECTORES = [
-    {"nombre": "Emilio Millán", "email": "emillan@ispch.cl"},
-    {"nombre": "Lukas Gallegos", "email": "lgallegos@ispch.cl"},
-    {"nombre": "María Inés Medina", "email": "mmedina@ispch.cl"},
-]
-INSPECTOR_POR_SEMANA = {1: INSPECTORES[0], 2: INSPECTORES[1], 3: INSPECTORES[2]}
+EMILIO = {"nombre": "Emilio Millán", "email": "emillan@ispch.cl"}
+LUKAS = {"nombre": "Lukas Gallegos", "email": "lgallegos@ispch.cl"}
+MARIA_INES = {"nombre": "María Inés Medina", "email": "mmedina@ispch.cl"}
+INSPECTORES = [EMILIO, LUKAS, MARIA_INES]
+INSPECTOR_POR_SEMANA = {1: EMILIO, 2: LUKAS, 3: MARIA_INES}
+
+# La cuarta semana solo existe en los meses de cinco semanas, y el Planner del
+# equipo la reparte mes a mes. Un mes de cinco semanas que no esté en la tabla
+# se la da a Emilio, como antes del Planner.
+# AMPLIAR esta tabla cuando se arme el Planner de 2028: sin ella, todas las
+# cuartas semanas de 2028 en adelante quedan para Emilio.
+CUARTA_SEMANA = {
+    (2027, 1): LUKAS,
+    (2027, 4): MARIA_INES,
+    (2027, 7): LUKAS,
+    (2027, 10): MARIA_INES,
+    (2027, 12): EMILIO,
+}
+CUARTA_SEMANA_POR_OMISION = EMILIO
+
+# Primer periodo en que una semana pertenece al mes de su viernes, como en el
+# Planner. Los anteriores conservan la regla del miércoles: ver periodo_de_semana.
+INICIO_REGLA_VIERNES = (2026, 11)
 
 # Quien organiza la reunión mensual y firma la invitación de calendario.
 ORGANIZADOR = {"nombre": "Lukas Gallegos", "email": "lgallegos@ispch.cl"}
@@ -172,9 +198,10 @@ HORA_REUNION = (9, 0)         # inicio de la reunión mensual
 DURACION_REUNION_MIN = 60
 # La reunión va en Google Calendar como un evento INDIVIDUAL por mes, no como
 # uno recurrente: la única recurrencia que expresa estas fechas es RDATE (fechas
-# explícitas), porque el martes de la semana 4 no es el "cuarto martes del mes"
-# en 5 de cada 36 meses. Outlook no soporta RDATE y rechaza la invitación
-# entera, así que un evento por mes es lo único que abre en ambos calendarios.
+# explícitas), porque el martes de la última semana no siempre es el "cuarto
+# martes del mes": entre 2027 y 2036 no lo es en 9 de los 120 meses, y en el
+# Planner, en septiembre de 2027. Outlook no soporta RDATE y rechaza la
+# invitación entera, así que un evento por mes es lo único que abre en ambos.
 
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
          "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -191,18 +218,40 @@ def lunes_de(fecha):
     return fecha - timedelta(days=fecha.weekday())
 
 
-def semanas_del_mes(anio, mes):
-    """Los lunes de las semanas que pertenecen a ese mes.
+def periodo_de_semana(lunes):
+    """El mes (año, mes) al que pertenece la semana de lunes a viernes de `lunes`.
 
-    Una semana es del mes donde cae la mayoría de sus días hábiles, es decir el
-    mes de su miércoles. Así que las semanas del mes son las de sus miércoles:
-    cuatro o cinco, nunca otra cosa.
+    Desde 2026-11 es el mes de su VIERNES, que es como cuenta las semanas el
+    Planner del equipo. Hasta 2026-10 fue el mes de su MIÉRCOLES: septiembre y
+    octubre de 2026 ya se ejecutaron así y deben seguir dando lo mismo.
+
+    Se decide mirando el viernes: si cae en 2026-11 o después, manda el viernes;
+    si no, el miércoles. En 2026 el corte es limpio porque el 31-10 es sábado:
+    ninguna semana tiene el miércoles en octubre y el viernes en noviembre, así
+    que octubre conserva sus cuatro semanas y noviembre empieza el lunes 02-11.
     """
-    ultimo = calendar.monthrange(anio, mes)[1]
-    primer_miercoles = next(d for d in range(1, 8) if date(anio, mes, d).weekday() == 2)
-    primer_lunes = date(anio, mes, primer_miercoles) - timedelta(days=2)
-    cuantas = 1 + (ultimo - primer_miercoles) // 7
-    return [primer_lunes + timedelta(weeks=i) for i in range(cuantas)]
+    viernes = lunes + timedelta(days=4)
+    if (viernes.year, viernes.month) >= INICIO_REGLA_VIERNES:
+        return viernes.year, viernes.month
+    miercoles = lunes + timedelta(days=2)
+    return miercoles.year, miercoles.month
+
+
+def semanas_del_mes(anio, mes):
+    """Los lunes de las semanas que pertenecen a ese mes, en orden: cuatro o cinco.
+
+    Es la inversa de periodo_de_semana(): recorre los lunes que pueden caer en
+    el mes —desde el de la semana del día 1 hasta el último día— y se queda con
+    los que le pertenecen. No hay una segunda fórmula que pueda separarse de esa.
+    """
+    primero = date(anio, mes, 1)
+    ultimo = date(anio, mes, calendar.monthrange(anio, mes)[1])
+    semanas, lunes = [], lunes_de(primero)
+    while lunes <= ultimo:
+        if periodo_de_semana(lunes) == (anio, mes):
+            semanas.append(lunes)
+        lunes += timedelta(weeks=1)
+    return semanas
 
 
 def semana_de(fecha):
@@ -210,10 +259,11 @@ def semana_de(fecha):
 
     `n` es el número de semana dentro del mes y `total` cuántas tiene ese mes.
     La última es siempre la de cierre, tenga el mes cuatro semanas o cinco.
+    El mes es el de periodo_de_semana(), que no siempre es el de la fecha: el
+    lunes 28-12-2026 pertenece a enero de 2027.
     """
     lunes = lunes_de(fecha)
-    miercoles = lunes + timedelta(days=2)
-    anio, mes = miercoles.year, miercoles.month
+    anio, mes = periodo_de_semana(lunes)
     semanas = semanas_del_mes(anio, mes)
     n = semanas.index(lunes) + 1
     return {
@@ -233,18 +283,32 @@ def modo_de(fecha):
     return "consolidacion" if semana_de(fecha)["ultima"] else "busqueda"
 
 
-def inspector_de(fecha):
-    """Inspector a cargo de la semana, o None si es la semana de cierre.
+def inspector_de_semana(anio, mes, n, total):
+    """Quién revisa la semana `n` de las `total` del mes, o None si es la de cierre.
 
-    La rotación es de tres y se recorre por posición dentro del mes. En los meses
-    de cinco semanas hay una cuarta semana de búsqueda, y le vuelve a tocar a
-    Emilio: es la consecuencia de que el ciclo sea de tres y el mes no siempre
-    quepa en tres semanas más el cierre.
+    Es la única fuente de la asignación: inspector_de() y bloques_del_mes() la
+    llaman las dos. Antes bloques_del_mes repetía la fórmula por su cuenta, y la
+    lista de reportes esperados del cierre podía decir otro inspector que el que
+    recibió el correo.
+
+    Semanas 1, 2 y 3: Emilio, Lukas y María Inés. La cuarta solo existe en los
+    meses de cinco semanas y sale de CUARTA_SEMANA (Emilio si el mes no está).
     """
-    sem = semana_de(fecha)
-    if sem["ultima"]:
+    if n == total:
         return None
-    insp = dict(INSPECTORES[(sem["n"] - 1) % len(INSPECTORES)])
+    if n in INSPECTOR_POR_SEMANA:
+        return dict(INSPECTOR_POR_SEMANA[n])
+    if n == 4:
+        return dict(CUARTA_SEMANA.get((anio, mes), CUARTA_SEMANA_POR_OMISION))
+    raise ValueError(f"semana {n} de {total} en {anio}-{mes:02d}: un mes no tiene más de cinco")
+
+
+def inspector_de(fecha):
+    """Inspector a cargo de la semana de `fecha`, o None si es la semana de cierre."""
+    sem = semana_de(fecha)
+    insp = inspector_de_semana(sem["anio"], sem["mes"], sem["n"], sem["total"])
+    if insp is None:
+        return None
     insp["semana_mes"] = sem["n"]
     insp["lunes_semana"] = sem["lunes"]
     insp["periodo"] = sem["periodo"]
@@ -517,13 +581,13 @@ def archivos_revisados(slug=None, anio=None, mes=None):
         if slug and info["slug"] != slug:
             continue
         if anio and mes:
-            # El mes del CICLO, no el del calendario. Una semana pertenece al
-            # mes de su miércoles, así que la del lunes 31-08-2026 es la semana
-            # 1 de septiembre. Filtrando por mes calendario, las revisiones de
-            # ese lunes quedaban fuera del consolidado de septiembre: la hoja de
-            # cobertura las daba por no devueltas y sus casos confirmados
-            # —infracciones que un inspector ya había validado— desaparecían del
-            # cierre sin que nadie lo notara.
+            # El mes del CICLO, no el del calendario: el de periodo_de_semana(),
+            # vía semana_de(). La semana del lunes 31-08-2026 es la semana 1 de
+            # septiembre y la del lunes 28-12-2026, la 1 de enero de 2027.
+            # Filtrando por mes calendario, las revisiones del 31-08 quedaban
+            # fuera del consolidado de septiembre: la hoja de cobertura las daba
+            # por no devueltas y sus casos confirmados —infracciones que un
+            # inspector ya había validado— desaparecían del cierre sin aviso.
             if info["fecha"] is None:
                 continue
             sem = semana_de(info["fecha"])
@@ -590,9 +654,9 @@ def construir_plan(fecha=None, slot=1):
         "modo_semana": modo,
     }
 
-    # La semana 4 y el quinto lunes no se fiscalizan. Se responde habil: false
-    # igual que un fin de semana, para que la rutina de búsqueda corte en el
-    # paso 1 sin gastar la corrida.
+    # La última semana del mes, sea la cuarta o la quinta, no se fiscaliza. Se
+    # responde habil: false igual que un fin de semana, para que la rutina de
+    # búsqueda corte en el paso 1 sin gastar la corrida.
     if modo != "busqueda":
         martes = martes_consolidacion(sem["anio"], sem["mes"])
         base["motivo"] = (
@@ -689,7 +753,7 @@ def bloques_del_mes(anio, mes):
     semanas = semanas_del_mes(anio, mes)
     filas = []
     for n, lunes in enumerate(semanas[:-1], start=1):
-        insp = INSPECTORES[(n - 1) % len(INSPECTORES)]
+        insp = inspector_de_semana(anio, mes, n, len(semanas))
         for i in range(5):
             d = lunes + timedelta(days=i)
             for slot in (1, 2):
@@ -852,7 +916,7 @@ def main():
     ap.add_argument("--semana", action="store_true", help="plan de la semana")
     ap.add_argument("--estado", action="store_true", help="cobertura histórica")
     ap.add_argument("--consolidacion", action="store_true",
-                    help="plan del cierre mensual (semana 4)")
+                    help="plan del cierre mensual (última semana del mes)")
     ap.add_argument("--hallazgos", type=int, default=None, help="n.º de hallazgos incluidos")
     ap.add_argument("--detectados", type=int, default=None, help="n.º de ofertas detectadas en total")
     ap.add_argument("--notas", default="", help="nota libre para el historial")
@@ -871,9 +935,13 @@ def main():
                   f"(lunes {sem['lunes']})  ·  {quien}")
             if sem["modo_semana"] != "busqueda":
                 print(f"  {construir_plan(fecha, 1)['motivo']}")
+            # En semana de cierre no se busca, con o sin feriado: decir "se
+            # fiscaliza" ahí sería falso (pasa con la Navidad de 2026).
+            nota = ("Se fiscaliza, no se revisa." if sem["modo_semana"] == "busqueda"
+                    else "Semana de cierre: no hay búsqueda.")
             for f, nombre in sorted(sem["feriados"].items()):
                 dia = DIAS[date.fromisoformat(f).weekday()]
-                print(f"  FERIADO {dia} {f}: {nombre}. Se fiscaliza, no se revisa.")
+                print(f"  FERIADO {dia} {f}: {nombre}. {nota}")
             for b in sem["bloques"]:
                 print(f"  {b['dia']:<10} bloque {b['slot']}  {b['categoria']}")
         return 0
