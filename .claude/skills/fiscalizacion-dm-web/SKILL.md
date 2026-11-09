@@ -334,8 +334,9 @@ permisos: el enlace descarga el archivo directamente.
   de hallazgos con el desglose por clasificación; si se alcanzó el objetivo de 20
   y si no, por qué; los 3 casos más relevantes; los descartados por jurisdicción;
   y los marketplaces que bloquearon el acceso. Cerrar recordando que las columnas
-  "Decisión final" y "Observaciones del inspector" se completan y el archivo se
-  sube a `revision/`.
+  "Decisión final" y "Observaciones del inspector" se completan y que el archivo
+  se devuelve respondiendo ese mismo correo con el Excel adjunto: se carga solo
+  en `revision/`.
 
 Enviar **un correo por bloque**, no uno diario con los dos.
 
@@ -721,10 +722,12 @@ Después de presentar el Excel, proporciona un resumen conciso en el chat que in
 
 ## Ciclo de retroalimentación
 
-El feedback dejó de ser manual: los inspectores suben los Excel completados a la
-carpeta `revision/` del repositorio y `scripts/feedback.py` los lee al inicio de
-cada corrida (ver "Paso 0-ter"). Las URL ya evaluadas se excluyen automáticamente
-y las correcciones del inspector ajustan el criterio de cruce.
+El feedback dejó de ser manual: los inspectores devuelven los Excel completados
+respondiendo el correo del reporte, un script los deja en la carpeta `revision/`
+del repositorio (ver `integraciones/recepcion-correo/INSTALAR.md`) y
+`scripts/feedback.py` los lee al inicio de cada corrida (ver "Paso 0-ter"). Las
+URL ya evaluadas se excluyen automáticamente y las correcciones del inspector
+ajustan el criterio de cruce.
 
 Los campos "Decisión final" y "Observaciones del inspector" permiten registrar la
 evaluación manual de cada caso. Este feedback es valioso para mejorar la skill:

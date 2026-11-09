@@ -83,6 +83,15 @@ con `create_trigger`), pero a cambio nació sin repositorio: ver arriba.
 usar cualquier herramienta de un conector incluido, escrituras incluidas, sin
 pedir permiso.
 
+**Las revisiones vuelven por correo, y eso no lo hace ninguna rutina.** El
+inspector responde el correo del reporte con el Excel completado, y un script de
+Google en la cuenta que envía los reportes lo sube a `revision/` y le confirma.
+Las rutinas no pueden hacerlo: un adjunto que pasa por el modelo llega corrupto.
+Instalación y mantención en `integraciones/recepcion-correo/INSTALAR.md`. El
+paso 6 de los tres prompts les pide a los inspectores responder el correo, así
+que ese texto se pega en las rutinas **después** de que el script esté andando:
+antes, las respuestas llegarían a un buzón que nadie procesa.
+
 ## Calendario del mes
 
 El mes se divide en semanas de búsqueda más una de cierre, igual que en el plan
@@ -339,8 +348,10 @@ por el nombre de esa rama en la URL y dilo en el cuerpo.
     el total; los 3 casos más relevantes; descartados por jurisdicción;
     marketplaces que bloquearon el acceso. Si hubo anexo, aclara que esas
     ofertas NO requieren revisión esta semana. Cierra recordando que debe
-    completar "Decisión final" y "Observaciones del inspector" y subir el archivo
-    a la carpeta revision/ del repositorio.
+    completar "Decisión final" y "Observaciones del inspector" y RESPONDER ESTE
+    MISMO CORREO con el Excel completado adjunto: se carga solo en el
+    repositorio y le llega una confirmación. Que no le cambie el nombre al
+    archivo; puede agregarle sus iniciales al final.
 Si el envío falla, informa el error. No deshagas el commit: el reporte ya está en
 el repositorio.
 
@@ -461,7 +472,8 @@ El repositorio es público: no necesitan cuenta ni permisos.
       para que en la reunión no se revisen de nuevo una por una.
     - Cierra recordando que en la reunión de las 09:00 hay que completar
       "¿Se procesa como denuncia?" y "Justificación de la decisión", y que el
-      archivo completado se sube a la carpeta revision/.
+      archivo completado se devuelve respondiendo este mismo correo con el
+      Excel adjunto: se carga solo en el repositorio.
 Si el envío falla: ALERTA (el archivo ya está en main; di el enlace en la alerta).
 
 PASO 7 — REUNIÓN: CONFIRMAR HOY Y EXTENDER EL HORIZONTE
