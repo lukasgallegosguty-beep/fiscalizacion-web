@@ -10,6 +10,10 @@ Uso:
     python3 scripts/generar_reporte.py --entrada hallazgos.json --salida ruta.xlsx
     python3 scripts/generar_reporte.py --entrada hallazgos.json --auto
 
+Con --auto, además, quita los hallazgos cuyo enlace ya está en el circuito de la
+categoría (las urls_excluidas de feedback.py) y los lista en el resumen, en
+"repetidas_quitadas". Ver quitar_repetidas().
+
 Estructura del JSON de entrada (todas las claves son opcionales salvo `categoria`):
 
     {
@@ -159,8 +163,23 @@ def _escribir_filas(ws, columnas, filas, colorear_clasificacion=True):
                 ws.cell(row=n, column=col).fill = PatternFill("solid", fgColor=AMARILLO)
 
 
-def _fila_sin_hallazgos(fecha, categoria):
+def _fila_sin_hallazgos(fecha, categoria, repetidas=0):
     """Fila testigo: deja constancia de que la categoría SÍ se revisó ese día."""
+    if repetidas:
+        observaciones = (
+            f"Revisión de la categoría «{categoria}» realizada el {fecha}. La búsqueda volvió a "
+            f"encontrar {repetidas} oferta(s) que ya estaban en reportes anteriores, en revisiones "
+            "o en actas de cierre de la categoría, y no se repiten aquí. No se detectaron "
+            "publicaciones nuevas. La ausencia de hallazgos nuevos no descarta ofertas no "
+            "indexadas por los buscadores ni las alojadas en sitios con acceso restringido."
+        )
+    else:
+        observaciones = (
+            f"Revisión de la categoría «{categoria}» realizada el {fecha} sin detectar "
+            "publicaciones individuales de productos no registrados. La ausencia de "
+            "hallazgos no descarta ofertas no indexadas por los buscadores ni las "
+            "alojadas en sitios con acceso restringido."
+        )
     return {
         "nombre_dm": "Sin hallazgos",
         "url": "",
@@ -170,15 +189,43 @@ def _fila_sin_hallazgos(fecha, categoria):
         "producto_isp": "",
         "registro_isp": "",
         "clasificacion": "SIN HALLAZGOS",
-        "observaciones": (
-            f"Revisión de la categoría «{categoria}» realizada el {fecha} sin detectar "
-            "publicaciones individuales de productos no registrados. La ausencia de "
-            "hallazgos no descarta ofertas no indexadas por los buscadores ni las "
-            "alojadas en sitios con acceso restringido."
-        ),
+        "observaciones": observaciones,
         "decision_final": "",
         "obs_inspector": "",
     }
+
+
+def _clave_url(u):
+    """La URL comparable: sin el fragmento de tracking, sin la barra final ni mayúsculas.
+
+    La misma clave con que consolidado.py junta las ofertas repetidas del mes.
+    """
+    return str(u or "").split("#")[0].rstrip(".,;)").strip().lower().rstrip("/")
+
+
+def quitar_repetidas(datos, slug, fecha):
+    """Saca los hallazgos cuyo enlace ya está en el circuito de la categoría.
+
+    Son los que feedback.py manda excluir: lo que revisó un inspector, lo que se
+    resolvió en una reunión de cierre y lo que ya está en un reporte anterior,
+    revisado o no. El prompt de la rutina ya exige no repetirlos, pero no basta:
+    el 10-11-2026 los dos reportes del día traían un enlace ya excluido cada uno
+    (uno de ellos decidido en el cierre de octubre), y el de Autotest VIH del
+    09-11-2026 repetía los diez. Una regla que el script puede cumplir no se le
+    deja al modelo.
+
+    Los reportes del mismo `fecha` no cuentan, así que repetir la corrida de un
+    día no deja fuera sus propios hallazgos. Devuelve los hallazgos quitados.
+    """
+    sys.path.insert(0, os.path.join(RAIZ, "scripts"))
+    import feedback
+    excluidas = {_clave_url(u) for u in feedback.analizar(slug, hoy=fecha)["urls_excluidas"]}
+    quedan, quitadas = [], []
+    for h in datos.get("hallazgos") or []:
+        url = _clave_url(h.get("url"))
+        (quitadas if url and url in excluidas else quedan).append(h)
+    datos["hallazgos"] = quedan
+    return quitadas
 
 
 def validar(datos):
@@ -309,7 +356,7 @@ def generar(datos, salida):
     ws.title = "Hallazgos"
     _encabezados(ws, COLUMNAS)
 
-    filas = hallazgos if hallazgos else [_fila_sin_hallazgos(fecha, categoria)]
+    filas = hallazgos if hallazgos else [_fila_sin_hallazgos(fecha, categoria, datos.get("_repetidas", 0))]
     _escribir_filas(ws, COLUMNAS, filas)
     ws.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNAS))}{len(filas) + 1}"
 
@@ -398,11 +445,26 @@ def main():
         salida = plan["archivo_salida"]
         datos.setdefault("categoria", plan["categoria"])
         datos.setdefault("fecha", plan["fecha"])
+        repetidas = quitar_repetidas(datos, plan["slug"], _date.fromisoformat(plan["fecha_iso"]))
+        datos["_repetidas"] = len(repetidas)
+    else:
+        repetidas = []
 
     avisos = validar(datos)
     resumen = generar(datos, salida)
     if avisos:
         resumen["avisos_calidad"] = avisos
+    if repetidas:
+        # No es un aviso de calidad: ya está corregido, y el reporte se emite así.
+        resumen["repetidas_quitadas"] = [
+            {"nombre_dm": h.get("nombre_dm", ""), "url": h.get("url", "")} for h in repetidas
+        ]
+        resumen["nota_repetidas"] = (
+            f"Se quitaron {len(repetidas)} hallazgo(s) cuyo enlace ya estaba en un reporte "
+            "anterior, en una revisión o en un acta de cierre de la categoría (urls_excluidas "
+            "del paso 2). No los vuelvas a agregar. Las cifras de este resumen ya no los cuentan: "
+            "usa estas para --hallazgos y --detectados."
+        )
 
     # El reporte va topado, pero el resumen informa sobre TODO lo revisado: la
     # mezcla registrado/no registrado sigue siendo la señal de si la búsqueda

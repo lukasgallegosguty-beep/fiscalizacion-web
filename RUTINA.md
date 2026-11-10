@@ -301,6 +301,9 @@ con marca y presentación. NUNCA el nombre de la categoría: si todas las filas
 dicen lo mismo, el inspector no puede distinguir un producto de otro.
 Si el script imprime "avisos_calidad", corrige el JSON y vuelve a generar antes
 de enviar. Son errores que el inspector no puede resolver por su cuenta.
+Si imprime "repetidas_quitadas", el script ya sacó los hallazgos cuyo enlace
+estaba en urls_excluidas: no los vuelvas a agregar, y usa las cifras de ese
+mismo resumen ("total" y "total_detectado") en el paso 5.
 Deja en blanco "Decisión final" y "Observaciones del inspector": las llena el
 inspector. Si no hay hallazgos, pasa "hallazgos": [] igual.
 
