@@ -36,11 +36,12 @@ const iso = ms => new Date(ms).toISOString();
 
 // ─── Lo simulado ────────────────────────────────────────────────────────────
 
-function entorno({ github = {}, props = {}, drive = [], sinServicioDrive = false, sinCuentaGoogle = [] } = {}) {
+function entorno({ github = {}, props = {}, drive = [], sinServicioDrive = false, sinCuentaGoogle = [],
+  cuentasGoogle = null } = {}) {
   const estado = {
     ahora: AHORA,
     correos: [], puts: [], deletes: [], anomalias: [], activadores: [], busquedasGmail: 0,
-    permisosCreados: 0, fallaDrive: null,
+    permisosCreados: 0, enlacesAbiertos: 0, fallaDrive: null,
     props: Object.assign({ GITHUB_TOKEN: 'github_pat_prueba' }, props),
     repo: new Map(Object.entries(github).map(([k, v]) => [k, Buffer.isBuffer(v) ? v : Buffer.from(v)])),
     drive: new Map(),
@@ -176,12 +177,18 @@ function entorno({ github = {}, props = {}, drive = [], sinServicioDrive = false
     if (m[2] === '/permissions') {
       if (metodo === 'get') return respuesta(200, { permissions: f.permisos });
       const p = JSON.parse(op.payload);
+      if (p.type === 'anyone') {
+        if (p.allowFileDiscovery !== false) estado.anomalias.push('enlace visible en búsquedas');
+        estado.enlacesAbiertos++;
+        f.permisos.push({ type: 'anyone', role: p.role });
+        return respuesta(200, { id: 'enlace' + estado.enlacesAbiertos });
+      }
       if (u.searchParams.get('sendNotificationEmail') !== 'true') estado.anomalias.push('compartir sin invitación');
       if (sinCuentaGoogle.indexOf(p.emailAddress) !== -1) {
         return respuesta(400, { error: { message: 'There is no Google account associated with ' + p.emailAddress } });
       }
       estado.permisosCreados++;
-      f.permisos.push({ emailAddress: p.emailAddress, role: p.role });
+      f.permisos.push({ type: 'user', emailAddress: p.emailAddress, role: p.role });
       return respuesta(200, { id: 'perm' + estado.permisosCreados });
     }
     if (metodo === 'patch') {
@@ -260,6 +267,7 @@ function entorno({ github = {}, props = {}, drive = [], sinServicioDrive = false
   // El reloj del script es el de la simulación.
   ctx.__ahora = () => estado.ahora;
   vm.runInContext('Date.now = () => __ahora();', ctx);
+  if (cuentasGoogle) vm.runInContext('CONFIG.cuentasGoogle = ' + JSON.stringify(cuentasGoogle) + ';', ctx);
   return { ctx, estado };
 }
 
@@ -362,8 +370,7 @@ test('un reporte nuevo se convierte en planilla en la carpeta de su categoría y
   const raiz = carpeta(estado, 'Fiscalización web DM');
   assert.deepEqual(raiz.parents, ['root']);
   assert.equal(raiz.writersCanShare, false, 'los inspectores no pueden compartirla con otros');
-  assert.deepEqual(raiz.permisos.map(p => [p.emailAddress, p.role]),
-    [['emillan@ispch.cl', 'writer'], ['lgallegos@ispch.cl', 'writer'], ['mmedina@ispch.cl', 'writer']]);
+  assert.deepEqual(raiz.permisos, [], 'la carpeta queda privada: solo se abren las planillas, con su enlace');
   const sub = carpeta(estado, 'Agujas hipodérmicas');
   assert.deepEqual(sub.parents, [raiz.id]);
 
@@ -371,6 +378,8 @@ test('un reporte nuevo se convierte en planilla en la carpeta de su categoría y
   assert.equal(p.name, 'Fiscalizacion_Web_DM_agujas-hipodermicas_09-11-2026');
   assert.deepEqual(p.parents, [sub.id]);
   assert.equal(p.writersCanShare, false);
+  assert.deepEqual(p.permisos, [{ type: 'anyone', role: 'writer' }], 'se abre con el enlace, sin cuenta');
+  assert.equal(r.publicar.abiertas, 1);
   assert.deepEqual(p.hojas, JSON.parse(estado.repo.get('resultados/' + AGUJAS)), 'la planilla trae el reporte entero');
 
   const [c] = avisos(estado);
@@ -385,6 +394,7 @@ test('un reporte nuevo se convierte en planilla en la carpeta de su categoría y
   assert.match(c.cuerpo, /Las otras 2 están en la hoja «Anexo»: no requieren revisión esta semana/);
   assert.match(c.cuerpo, /1\. Aguja 30G x 13mm — Tienda Uno\n {2}2\. Aguja 25G sin marca — Vendedor ML/);
   assert.match(c.cuerpo, /no hay que descargar ni devolver nada/);
+  assert.match(c.cuerpo, /se abre con el enlace, sin cuenta de Google\. .*ventana de incógnito\. El enlace deja editar a quien lo tenga/);
   assert.match(c.cuerpo, /Plazo: antes del lunes 16-11-2026/);
   assert.ok(c.cuerpo.includes('resultados/' + AGUJAS), 'trae el respaldo en el repositorio');
   assert.deepEqual(registro(estado, AGUJAS).id, p.id);
@@ -609,7 +619,8 @@ test('si se perdió el registro del script, la planilla que ya está en su carpe
 // ─── Instalar y fallas ──────────────────────────────────────────────────────
 
 test('instalar: comprueba GitHub y Drive, comparte la carpeta una sola vez y deja un solo activador', () => {
-  const { ctx, estado } = entorno({ github: { 'revision/README.md': '# revision' } });
+  const { ctx, estado } = entorno({ github: { 'revision/README.md': '# revision' },
+    cuentasGoogle: ['uno@gmail.com', 'dos@gmail.com', 'tres@gmail.com'] });
   ctx.instalar();
   ctx.instalar();
   assert.equal(estado.activadores.length, 1);
@@ -640,7 +651,8 @@ test('si la API de Drive no está activada, instalar falla y dice cómo activarl
 });
 
 test('una cuenta con la que no se puede compartir: se dice cuál y qué hacer, y el resto queda compartido', () => {
-  const { ctx, estado } = entorno({ github: { 'revision/README.md': '# revision' }, sinCuentaGoogle: ['mmedina@ispch.cl'] });
+  const { ctx, estado } = entorno({ github: { 'revision/README.md': '# revision' }, sinCuentaGoogle: ['mmedina@ispch.cl'],
+    cuentasGoogle: ['emillan@ispch.cl', 'lgallegos@ispch.cl', 'mmedina@ispch.cl'] });
   ctx.instalar();
   const raiz = carpeta(estado, 'Fiscalización web DM');
   assert.deepEqual(raiz.permisos.map(p => p.emailAddress), ['emillan@ispch.cl', 'lgallegos@ispch.cl']);
@@ -702,5 +714,31 @@ test('el registro de las planillas de hace más de 400 días se olvida, y esos r
   assert.equal(estado.props['planilla:' + AGUJAS], undefined);
   assert.equal(planillas(estado).length, 1, 'no se publica de nuevo');
   assert.equal(avisos(estado).length, 1);
+  sinAnomalias(estado);
+});
+
+test('las planillas publicadas antes de abrirlas con enlace se abren en la corrida siguiente, sin volver a escribir', () => {
+  const repo = repoConAgujas();
+  const { ctx, estado } = entorno({
+    github: repo,
+    drive: [
+      { id: 'raiz', name: 'Fiscalización web DM', mimeType: TIPO_CARPETA, parents: ['root'] },
+      { id: 'agujas', name: 'Agujas hipodérmicas', mimeType: TIPO_CARPETA, parents: ['raiz'] },
+      { id: 'vieja', name: 'Fiscalizacion_Web_DM_agujas-hipodermicas_09-11-2026', mimeType: TIPO_PLANILLA,
+        parents: ['agujas'], webViewLink: 'https://docs.google.com/spreadsheets/d/vieja/edit',
+        hojas: JSON.parse(repo['resultados/' + AGUJAS]) },
+    ],
+    props: {
+      'carpeta:raiz': 'raiz', 'carpeta:agujas-hipodermicas': 'agujas',
+      ['planilla:' + AGUJAS]: JSON.stringify({ id: 'vieja', url: 'https://docs.google.com/spreadsheets/d/vieja/edit',
+        sha: shaGit(Buffer.from(repo['resultados/' + AGUJAS])), sinc: iso(AHORA - 864e5), avisado: true }),
+    },
+  });
+  const r = plano(ctx.sincronizar());
+  assert.equal(r.publicar.abiertas, 1);
+  assert.deepEqual(estado.drive.get('vieja').permisos, [{ type: 'anyone', role: 'writer' }]);
+  assert.equal(avisos(estado).length, 0, 'el correo ya había salido');
+  ctx.sincronizar();
+  assert.equal(estado.enlacesAbiertos, 1, 'no se vuelve a abrir');
   sinAnomalias(estado);
 });

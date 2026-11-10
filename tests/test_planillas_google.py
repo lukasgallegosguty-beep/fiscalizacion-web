@@ -106,10 +106,13 @@ class MismasListasQueRotacion(unittest.TestCase):
         ni las planillas. Pasó en la primera instalación, el 10-11-2026."""
         self.assertRegex(texto_del_script(), r"DriveApp\.createFolder\(")
 
-    def test_la_carpeta_se_comparte_con_los_inspectores(self):
-        """Por omisión, con la cuenta del ISP de cada uno. Si alguno entra a Google con
-        otra dirección, se cambia ahí y este test deja de aplicar: hay que ajustarlo."""
-        self.assertEqual(sorted(cuentas_google_del_script()), sorted(i["email"] for i in rotacion.INSPECTORES))
+    def test_las_planillas_se_abren_con_su_enlace(self):
+        """Decidido el 10-11-2026: Google no deja compartir con las cuentas @ispch.cl
+        (el ISP no recibe archivos externos, y Emilio y María Inés no tienen cuenta de
+        Google con ese correo), así que cada planilla se abre con su enlace, sin cuenta."""
+        self.assertRegex(texto_del_script(), r"compartirConEnlace: true,")
+        self.assertFalse([c for c in cuentas_google_del_script() if c.endswith("@ispch.cl")],
+                         "las cuentas @ispch.cl no pueden recibir la carpeta")
 
 
 class NombresQueArmaElScript(unittest.TestCase):
