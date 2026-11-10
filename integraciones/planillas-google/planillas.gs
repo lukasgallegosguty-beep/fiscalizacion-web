@@ -266,11 +266,24 @@ function probarConexion() {
  * el error dice qué hacer (errorDrive_).
  */
 function probarDrive_() {
-  DriveApp.getRootFolder();  // deja pedido el permiso de Drive al autorizar
+  DriveApp.getRootFolder();
   const yo = driveJson_('get', DRIVE_ABOUT + '?fields=user(emailAddress)', null, 'leer la cuenta de Drive');
   console.log('Conexión con Google Drive: OK (' + yo.user.emailAddress + ').' +
     (typeof Drive === 'undefined' ? ' Sin el servicio «Drive API», que en esta cuenta no hace falta.' : ''));
   return true;
+}
+
+/**
+ * No se ejecuta nunca: está para que Google pida el permiso de Drive completo.
+ * Apps Script decide qué permisos pedir leyendo el código, y si de DriveApp solo
+ * ve lecturas, pide Drive en solo lectura. Con eso el script no puede crear la
+ * carpeta ni las planillas, que se crean con la API de Drive y el mismo
+ * permiso: en la primera instalación, el 10-11-2026, falló así («Request had
+ * insufficient authentication scopes»). tests/test_planillas_google.py exige que
+ * siga aquí.
+ */
+function pedirPermisoDeEscrituraEnDrive_() {
+  DriveApp.createFolder('(no se ejecuta)');
 }
 
 function conCandado_(fn) {
@@ -901,7 +914,8 @@ function errorDrive_(codigo, texto, que) {
       'Drive API → Agregar; si el + no deja, ver INSTALAR.md, paso 4.';
   }
   if (codigo === 401 || (codigo === 403 && /insufficient/i.test(String(texto)))) {
-    return base + ' — Hay que volver a autorizar el script: ejecuta instalar() en el editor.';
+    return base + ' — Falta el permiso de Drive completo. Pega de nuevo el código del script (INSTALAR.md, ' +
+      'paso 2), ejecuta instalar() y acepta los permisos que pide, incluido el de editar archivos de Drive.';
   }
   return base;
 }

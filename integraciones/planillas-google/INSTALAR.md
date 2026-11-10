@@ -149,7 +149,8 @@ activada para el script», actívala a mano:
 ### 5. Autorizar y encender
 
 1. Arriba, en la lista de funciones junto a **Ejecutar**, elige `instalar` y
-   haz clic en **Ejecutar**.
+   haz clic en **Ejecutar**. Ojo: la lista parte en `sincronizar`, que es la
+   primera función del archivo; hay que cambiarla a `instalar`.
 2. Google pide permisos: **Revisar permisos** → elige qf.lukasgallegos@gmail.com
    → sale «Google no verificó esta app» → **Configuración avanzada** → **Ir a
    Planillas en línea DM (no seguro)** → **Permitir**.
@@ -158,15 +159,26 @@ activada para el script», actívala a mano:
    - Pide Gmail, Drive y Hojas de cálculo en términos amplios porque así los
      pide cualquier script que los usa. Este solo crea y lee las planillas de su
      carpeta, manda los correos del reporte y revisa las respuestas de ispch.cl.
+   - En la lista tiene que estar «Ver, editar, crear y borrar todos tus archivos
+     de Google Drive»: sin ese permiso no puede crear la carpeta ni las
+     planillas. Si pegas una versión nueva del código, Google puede volver a
+     pedir permisos: acéptalos igual.
 3. En el registro de ejecución tienen que aparecer cuatro líneas:
    - `Conexión con GitHub: OK. El token puede leer y escribir en …`
    - `Conexión con Google Drive: OK (qf.lukasgallegos@gmail.com).`
    - `Carpeta de las planillas: https://drive.google.com/drive/folders/… — compartida con: emillan@ispch.cl, lgallegos@ispch.cl, mmedina@ispch.cl.`
    - `Listo: cada 15 minutos se publican los reportes nuevos, …`
 
-   Si en cambio aparece un error, dice qué falta: casi siempre es el token (que
-   no se copió entero, o que no tiene **Contents: Read and write**) o la API de
-   Drive del paso 4.
+   Si en cambio aparece un error, dice qué falta. Los más comunes:
+   - **El token**: no se copió entero, o no tiene **Contents: Read and write**.
+   - **«Google Drive API has not been used in project … or it is disabled»**: la
+     API de Drive no está activada. Haz el paso 4; o abre el enlace que trae el
+     error con qf.lukasgallegos@gmail.com y haz clic en **Habilitar**. Espera un
+     par de minutos y vuelve a ejecutar `instalar`.
+   - **«Request had insufficient authentication scopes»**: el script quedó
+     autorizado sin el permiso de editar Drive. Pega de nuevo el código del
+     paso 2 (la versión vigente lo pide), ejecuta `instalar` y acepta los
+     permisos.
 
 ### 6. Que cada inspector pueda abrir la carpeta
 
