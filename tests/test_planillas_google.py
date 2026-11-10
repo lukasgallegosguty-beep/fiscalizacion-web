@@ -100,6 +100,12 @@ class MismasListasQueRotacion(unittest.TestCase):
         """Los nombres de las carpetas del Drive y del asunto de los correos."""
         self.assertEqual(nombres_del_script(), {c["slug"]: c["nombre"] for c in rotacion.CATEGORIAS})
 
+    def test_pide_el_permiso_de_drive_completo(self):
+        """Apps Script deduce los permisos leyendo el código: si de DriveApp solo ve
+        lecturas, pide Drive en solo lectura y el script no puede crear la carpeta
+        ni las planillas. Pasó en la primera instalación, el 10-11-2026."""
+        self.assertRegex(texto_del_script(), r"DriveApp\.createFolder\(")
+
     def test_la_carpeta_se_comparte_con_los_inspectores(self):
         """Por omisión, con la cuenta del ISP de cada uno. Si alguno entra a Google con
         otra dirección, se cambia ahí y este test deja de aplicar: hay que ajustarlo."""
