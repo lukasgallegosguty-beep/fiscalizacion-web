@@ -143,6 +143,8 @@ que **son de uso obligatorio** en la corrida:
    volver a reportarlos**, aunque sigan activos y sigan siendo infracción. Ya
    están en el circuito; repetirlos le hace perder tiempo al inspector. Los del
    anexo de un reporte anterior no están en la lista: esos sí tienen que volver.
+   Si alguno se cuela igual, `generar_reporte.py --auto` lo quita solo y lo
+   informa en `repetidas_quitadas`: no volver a agregarlo.
 2. `falsos_positivos` — la rutina acusó y el inspector desmintió. El criterio de
    cruce está **demasiado estricto**: ampliar la coincidencia flexible (variantes
    de marca, razón social del titular, nombres comerciales alternativos).
