@@ -95,10 +95,13 @@ poder hacerlo **solo** en este repositorio.
    y cópialo entero con el botón **Copy raw file** (el ícono de copiar, arriba a
    la derecha del código).
 4. En el editor de Apps Script, borra todo lo que trae `Código.gs`, pega lo que
-   copiaste y guarda (ícono del disquete, o Ctrl+S). Si al guardar aparece un
-   error de sintaxis, en **Configuración del proyecto** marca «Habilitar el
-   entorno de ejecución de Chrome V8»: los proyectos nuevos ya lo traen, los
-   antiguos no.
+   copiaste y guarda (ícono del disquete, o Ctrl+S). Ahí va **el código**, unas
+   1.500 líneas que empiezan con `/**` y «Planillas en línea»; **el token no va
+   aquí**, va solo en el paso 3. Al guardar, la lista de funciones de arriba
+   tiene que mostrar `sincronizar`; si dice «Sin funciones», lo pegado no es el
+   código. Si al guardar aparece un error de sintaxis, en **Configuración del
+   proyecto** marca «Habilitar el entorno de ejecución de Chrome V8»: los
+   proyectos nuevos ya lo traen, los antiguos no.
 
 ### 3. Guardar el token en el script
 
@@ -110,15 +113,38 @@ a la vista.
 3. Propiedad: `GITHUB_TOKEN`. Valor: el token del paso 1.
 4. **Guardar**.
 
-### 4. Activar el servicio de Drive
+### 4. Activar el servicio de Drive (si el editor lo deja)
 
-El script convierte los Excel en planillas con la API de Google Drive, que hay
-que activar en el proyecto.
+El script convierte los Excel en planillas con la API de Google Drive. En muchas
+cuentas responde sin hacer nada; este paso la activa por si acaso.
 
 1. Vuelve al editor (el ícono `< >` de la izquierda).
 2. En la barra de la izquierda, junto a **Servicios**, el **+**.
-3. Elige **Drive API** y **Agregar**. Deja la versión y el identificador
-   (`Drive`) que trae.
+3. Elige **Drive API** (no «Drive Activity» ni «Drive Labels») y **Agregar**.
+   Deja la versión y el identificador (`Drive`) que trae.
+
+Si el **+** no abre la lista o no te deja agregarlo, sigue con el paso 5:
+`instalar` comprueba si la API responde. Solo si dice «La API de Drive no está
+activada para el script», actívala a mano:
+
+1. **Configuración del proyecto** (engranaje) → marca «Mostrar el archivo de
+   manifiesto "appsscript.json" en el editor».
+2. En el editor, abre `appsscript.json`, reemplaza todo su contenido por esto y
+   guarda:
+
+   ```json
+   {
+     "timeZone": "America/Santiago",
+     "dependencies": {
+       "enabledAdvancedServices": [
+         { "userSymbol": "Drive", "serviceId": "drive", "version": "v3" }
+       ]
+     },
+     "exceptionLogging": "STACKDRIVER",
+     "runtimeVersion": "V8"
+   }
+   ```
+3. Vuelve a ejecutar `instalar`.
 
 ### 5. Autorizar y encender
 
@@ -139,8 +165,8 @@ que activar en el proyecto.
    - `Listo: cada 15 minutos se publican los reportes nuevos, …`
 
    Si en cambio aparece un error, dice qué falta: casi siempre es el token (que
-   no se copió entero, o que no tiene **Contents: Read and write**) o el servicio
-   de Drive del paso 4.
+   no se copió entero, o que no tiene **Contents: Read and write**) o la API de
+   Drive del paso 4.
 
 ### 6. Que cada inspector pueda abrir la carpeta
 

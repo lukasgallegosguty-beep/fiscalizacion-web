@@ -260,15 +260,16 @@ function probarConexion() {
   return true;
 }
 
-/** Comprueba que el script puede usar Google Drive. */
+/**
+ * Comprueba que el script puede usar Google Drive. No exige el servicio
+ * avanzado «Drive API»: si la API ya responde sin él, se sigue. Si no responde,
+ * el error dice qué hacer (errorDrive_).
+ */
 function probarDrive_() {
-  if (typeof Drive === 'undefined') {
-    throw new Error('Falta activar el servicio «Drive API»: en el editor, a la izquierda, ' +
-      '«Servicios» (+) → Drive API → Agregar (INSTALAR.md, paso 4).');
-  }
-  DriveApp.getRootFolder();  // además, deja pedido el permiso de Drive al autorizar
+  DriveApp.getRootFolder();  // deja pedido el permiso de Drive al autorizar
   const yo = driveJson_('get', DRIVE_ABOUT + '?fields=user(emailAddress)', null, 'leer la cuenta de Drive');
-  console.log('Conexión con Google Drive: OK (' + yo.user.emailAddress + ').');
+  console.log('Conexión con Google Drive: OK (' + yo.user.emailAddress + ').' +
+    (typeof Drive === 'undefined' ? ' Sin el servicio «Drive API», que en esta cuenta no hace falta.' : ''));
   return true;
 }
 
@@ -895,8 +896,9 @@ function errorDrive_(codigo, texto, que) {
   let detalle = String(texto || '');
   try { detalle = JSON.parse(texto).error.message || detalle; } catch (e) { /* no era JSON */ }
   const base = 'Google Drive respondió ' + codigo + ' al ' + que + ': ' + detalle.slice(0, 300);
-  if (codigo === 403 && /has not been used|is disabled|accessNotConfigured/i.test(String(texto))) {
-    return base + ' — Falta activar el servicio «Drive API» en el editor del script (INSTALAR.md, paso 4).';
+  if (codigo === 403 && /has not been used|is disabled|accessNotConfigured|SERVICE_DISABLED/i.test(String(texto))) {
+    return base + ' — La API de Drive no está activada para el script. En el editor: «Servicios» (+) → ' +
+      'Drive API → Agregar; si el + no deja, ver INSTALAR.md, paso 4.';
   }
   if (codigo === 401 || (codigo === 403 && /insufficient/i.test(String(texto)))) {
     return base + ' — Hay que volver a autorizar el script: ejecuta instalar() en el editor.';

@@ -130,6 +130,10 @@ function entorno({ github = {}, props = {}, drive = [], sinServicioDrive = false
   function driveApi(url, op) {
     if (op.headers.Authorization !== 'Bearer token-google') estado.anomalias.push('sin token de Google: ' + url);
     if (estado.fallaDrive) return respuesta(estado.fallaDrive, { error: { message: 'falla simulada' } });
+    if (estado.apiApagada) {
+      return respuesta(403, { error: { code: 403, status: 'PERMISSION_DENIED', message: 'Google Drive API has not been ' +
+        'used in project 123 before or it is disabled.', errors: [{ reason: 'accessNotConfigured' }] } });
+    }
     const metodo = op.method || 'get';
     const u = new URL(url);
     if (u.pathname === '/drive/v3/about') return respuesta(200, { user: { emailAddress: YO } });
@@ -621,9 +625,18 @@ test('instalar: comprueba GitHub y Drive, comparte la carpeta una sola vez y dej
   sinAnomalias(estado);
 });
 
-test('instalar sin el servicio Drive API: falla y dice cómo activarlo', () => {
-  const { ctx } = entorno({ github: { 'revision/README.md': '# revision' }, sinServicioDrive: true });
-  assert.throws(() => ctx.instalar(), /Falta activar el servicio «Drive API»/);
+test('sin el servicio Drive API: si la API responde, se instala igual', () => {
+  const { ctx, estado } = entorno({ github: { 'revision/README.md': '# revision' }, sinServicioDrive: true });
+  ctx.instalar();
+  assert.equal(estado.activadores.length, 1);
+  assert.ok(carpeta(estado, 'Fiscalización web DM'));
+});
+
+test('si la API de Drive no está activada, instalar falla y dice cómo activarla', () => {
+  const { ctx, estado } = entorno({ github: { 'revision/README.md': '# revision' }, sinServicioDrive: true });
+  estado.apiApagada = true;
+  assert.throws(() => ctx.instalar(), /La API de Drive no está activada para el script\. En el editor: «Servicios» \(\+\) → Drive API/);
+  assert.equal(estado.activadores.length, 0, 'no queda encendido a medias');
 });
 
 test('una cuenta con la que no se puede compartir: se dice cuál y qué hacer, y el resto queda compartido', () => {
