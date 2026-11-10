@@ -6,7 +6,7 @@
   "slot": 1,
   "archivo": "Fiscalizacion_Web_DM_desfibriladores-dea_10-11-2026.xlsx",
   "inspector": "lgallegos@ispch.cl",
-  "hallazgos": 3,
-  "detectados": 3,
-  "notas": "Descartados por jurisdicción: desfibriladores.shop (España, EUR), tactical-medicine.com y somatechnology.com (EE.UU.), ML Colombia. Bloquearon acceso: Mercado Libre, Yapo (403). Búsqueda saturada: 78 URLs ya excluidas."
+  "hallazgos": 10,
+  "detectados": 28,
+  "notas": "Descartadas por jurisdicción 7 ofertas: balphin.com, bienestarysoluciones.com, consortiumsalud.com y bnaconecta.com.ar (Argentina), tactical-medicine.com y somatechnology.com (EE.UU.), Mercado Libre Colombia. Bloquearon el acceso Mercado Libre Chile (antibots/login) y Yapo.cl (403); sus pistas quedaron en la hoja Búsquedas Marketplace."
 }
