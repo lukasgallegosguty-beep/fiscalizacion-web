@@ -6,6 +6,7 @@
   "slot": 2,
   "archivo": "Fiscalizacion_Web_DM_autotest-vih_09-11-2026.xlsx",
   "inspector": "lgallegos@ispch.cl",
-  "hallazgos": 10,
-  "detectados": 10
+  "hallazgos": 2,
+  "detectados": 2,
+  "notas": "Se descartaron 23 ofertas por jurisdicción (Mercado Libre México, tiendas de España, Colombia, Brasil, Reino Unido y Hong Kong/Singapur). Bloquearon el acceso Mercado Libre (verificación antibot/403), Ripley (403), Cruz Verde (API con sesión), Líder (bucle de redirección), e insumedical.cl y testrapidovih.cl no resuelven."
 }
