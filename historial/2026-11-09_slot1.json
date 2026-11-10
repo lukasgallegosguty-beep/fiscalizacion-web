@@ -7,5 +7,6 @@
   "archivo": "Fiscalizacion_Web_DM_agujas-hipodermicas_09-11-2026.xlsx",
   "inspector": "lgallegos@ispch.cl",
   "hallazgos": 10,
-  "detectados": 12
+  "detectados": 36,
+  "notas": "Se descartaron 7 ofertas por jurisdicción (tiendas de México, Venezuela, EE.UU. y España, y una tienda veterinaria sin evidencia de venta en Chile). Mercado Libre, Ripley y Yapo bloquearon el acceso; Falabella y Paris cargan sus fichas por JavaScript y solo se leyeron los listados de búsqueda."
 }
