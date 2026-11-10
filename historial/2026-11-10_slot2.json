@@ -6,7 +6,7 @@
   "slot": 2,
   "archivo": "Fiscalizacion_Web_DM_guantes-examinacion_10-11-2026.xlsx",
   "inspector": "lgallegos@ispch.cl",
-  "hallazgos": 6,
-  "detectados": 6,
-  "notas": "Descartados por jurisdicción: ninguno. Mercado Libre bloqueó acceso (403); Falabella sin URLs individuales."
+  "hallazgos": 10,
+  "detectados": 17,
+  "notas": "9 ofertas descartadas por jurisdicción (Argentina, Colombia, México, España, EE.UU./Alemania y un proveedor sin evidencia de venta en Chile). Mercado Libre (muro de login), Yapo (403 Cloudflare) y Ripley (403) bloquearon el acceso; Falabella sí respondió."
 }
