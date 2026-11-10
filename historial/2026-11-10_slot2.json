@@ -1,0 +1,12 @@
+{
+  "categoria": "guantes-examinacion",
+  "nombre": "Guantes de examen médico",
+  "fecha": "2026-11-10",
+  "dia": "martes",
+  "slot": 2,
+  "archivo": "Fiscalizacion_Web_DM_guantes-examinacion_10-11-2026.xlsx",
+  "inspector": "lgallegos@ispch.cl",
+  "hallazgos": 6,
+  "detectados": 6,
+  "notas": "Descartados por jurisdicción: ninguno. Mercado Libre bloqueó acceso (403); Falabella sin URLs individuales."
+}
