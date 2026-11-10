@@ -5,10 +5,10 @@ dispositivos médicos** (ISP / ANDIM, Chile).
 
 Dos rutinas revisan **dos categorías por día hábil** (un bloque cada una), cruzan
 las ofertas encontradas en la web contra el listado ISP vigente y dejan el Excel
-en `resultados/`. Un script de Google lo convierte en una **planilla en línea**,
-en una carpeta del Drive compartida con los tres inspectores, y le manda el
-enlace al inspector de turno. Lo que el inspector escribe en la planilla se copia
-solo a `revision/`, y ese feedback entra en la corrida siguiente.
+en `resultados/`. Un script de Google lo convierte en una **planilla en línea**
+en el Drive y le manda el enlace al inspector de turno; la planilla se abre con
+ese enlace, sin cuenta de Google. Lo que el inspector escribe en la planilla se
+copia solo a `revision/`, y ese feedback entra en la corrida siguiente.
 
 **Quién hace qué cada día, cada semana y en el cierre del mes:** `OPERACION.md`.
 

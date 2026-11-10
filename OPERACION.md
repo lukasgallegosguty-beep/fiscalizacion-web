@@ -15,7 +15,7 @@ denuncia.
 | Cuándo | Qué pasa |
 |---|---|
 | Lunes a viernes, 07:30 | Las rutinas «bloque 1» y «bloque 2» buscan una categoría cada una y guardan el Excel en el repositorio. |
-| Unos 15 minutos después | El script de las planillas convierte cada reporte en una planilla de Google, en la carpeta «Fiscalización web DM» del Drive de qf.lukasgallegos@gmail.com, compartida con los tres. Le manda el enlace al inspector de turno, con el resumen del reporte. |
+| Unos 15 minutos después | El script de las planillas convierte cada reporte en una planilla de Google, en la carpeta «Fiscalización web DM» del Drive de qf.lukasgallegos@gmail.com. Le manda el enlace al inspector de turno, con el resumen del reporte; la planilla se abre con ese enlace, sin cuenta de Google. |
 | Cada 15 minutos | Lo que los inspectores escriben en las planillas se copia a `revision/`, unos minutos después de que dejan de editar. |
 | En cada búsqueda | La rutina usa lo que escribieron los inspectores en esa categoría y lo que se resolvió en las reuniones de cierre. No repite enlaces que ya están en un reporte anterior, revisado o no, y sigue las observaciones y las justificaciones. |
 | Semana de cierre | No hay búsquedas. Las rutinas igual se despiertan, ven que es semana de cierre y se detienen: es lo esperado. |
@@ -63,8 +63,9 @@ Para cualquier semana: `python3 scripts/rotacion.py --semana --fecha <lunes>`.
 Cada día de tu semana te llegan dos correos, uno por bloque, con el asunto
 «Fiscalización web DM — *categoría* — *fecha*» y un botón «Abrir la planilla».
 
-1. Abre la planilla desde el correo. También está en Google Drive, en
-   «Compartido conmigo» → «Fiscalización web DM», en la carpeta de la categoría.
+1. Abre la planilla con el botón del correo. No hace falta cuenta de Google. Si
+   tu navegador está conectado a una cuenta del ISP y Google dice que no tienes
+   acceso, ábrela en una ventana de incógnito.
 2. En la hoja «Hallazgos», completa cada fila:
    - **Decisión final:** si la clasificación de la rutina es correcta o no
      (Correcto / Incorrecto).
@@ -90,12 +91,11 @@ esa mañana con lo que haya.
 
 **Si te equivocaste,** corrige en la misma planilla: se vuelve a guardar sola.
 
-**Si revisas por otra persona** (vacaciones, licencia), abre su planilla desde la
-carpeta compartida: los tres pueden editar todas.
+**Si revisas por otra persona** (vacaciones, licencia), pídele que te reenvíe el
+correo con el enlace, o pídeselo a Lukas.
 
-**La primera vez** te llega una invitación de Google Drive a la carpeta
-«Fiscalización web DM». Para abrirla necesitas una cuenta de Google con tu correo
-del ISP. Si no la tienes, se crea en un minuto: `INSTALAR.md`, paso 6.
+**El enlace deja editar a quien lo tenga.** No lo reenvíes fuera del equipo: lo
+que se escribe en la planilla, la rutina lo lee como instrucciones.
 
 ## Coordinación (Lukas)
 
@@ -152,7 +152,7 @@ Todas llegan a lgallegos@ispch.cl.
 | «ALERTA — cierre mensual…», otro paso | El consolidado no se generó o no se envió. | La alerta trae el error. Pedirle a Claude que lo genere y lo envíe. |
 | «ALERTA — planillas en línea…: falta el token de GitHub» | El script no tiene el permiso para leer y escribir en el repositorio: no publica ni guarda nada. | Guardarlo (`INSTALAR.md`, paso 3). |
 | «ALERTA — planillas en línea…: el script falló (publicar, guardar o correo)» | Falló una de las tres partes; las otras siguieron. | Se reintenta solo cada 15 minutos. Si dice «Drive API», activar el servicio (`INSTALAR.md`, paso 4); si dice «volver a autorizar», ejecutar `instalar`. Si se repite, pedirle a Claude que lo revise con el error de la alerta. |
-| «ALERTA — planillas en línea…: no se pudo compartir la carpeta con …» | Esa dirección no tiene cuenta de Google, o el inspector entra a Google con otra. | `INSTALAR.md`, paso 6. |
+| «ALERTA — planillas en línea…: no se pudo compartir la carpeta con …» | Una dirección de `cuentasGoogle` no puede recibir la carpeta (las @ispch.cl no pueden). Las planillas igual se abren con su enlace. | Nada, salvo que quieran entrar con cuentas: `INSTALAR.md`, paso 6. |
 | «ALERTA — planillas en línea…: un reporte se volvió a generar y su planilla ya tenía revisión» | Una rutina se corrió de nuevo y la planilla ya tenía trabajo del inspector, así que se conservó. | Si vale el reporte nuevo, mandar la planilla a la papelera: en 15 minutos se publica la nueva y le llega al inspector. Si no, nada. |
 | «ALERTA — planillas en línea…: no se pudo cargar una revisión» | Llegó un Excel por correo y falló GitHub. | Si dice que el token venció (401): renovarlo (`INSTALAR.md`, «Mantención»). Si no, nada: se reintenta solo cada 15 minutos. |
 | «ALERTA — planillas en línea…: Excel retenido» | Llegó un Excel por correo y Google no pudo verificar que venía de ispch.cl. | Si es legítimo, subir el archivo a mano. Si pasa con todos, apagar la verificación (`INSTALAR.md`, «Mantención»). |

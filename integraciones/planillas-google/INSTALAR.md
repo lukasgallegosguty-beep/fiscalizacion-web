@@ -1,7 +1,8 @@
 # Planillas en línea
 
 Con esto, cada reporte le llega al inspector como una **planilla de Google** en
-una carpeta de tu Drive compartida con los tres. El inspector trabaja ahí, y lo
+una carpeta de tu Drive; se abre con el enlace del correo, sin cuenta de Google.
+El inspector trabaja ahí, y lo
 que escribe se copia solo a `revision/`: nadie descarga, devuelve ni sube nada.
 Las búsquedas y el consolidado leen esa carpeta, así que siempre trabajan con lo
 último que se escribió.
@@ -26,15 +27,23 @@ Los archivos pasan entre GitHub y Google directamente, sin la rutina de Claude d
 por medio. Un binario que pasa por el modelo como texto llega corrupto: así se
 dañaron los adjuntos de salida del 24-08-2026.
 
-La carpeta se comparte solo con las cuentas de los tres, como editores y **sin
-permiso para compartirla con otros**: lo que se escribe en las planillas la
-rutina lo lee como instrucciones.
+**Cada planilla se abre con su enlace, sin cuenta de Google**, y quien tenga el
+enlace puede editarla. La carpeta queda privada: solo entra qf.lukasgallegos@gmail.com.
+Se decidió así el 10-11-2026, porque Google no deja compartir con las cuentas
+del ISP: el administrador de ispch.cl bloqueó recibir archivos de fuera, y Emilio
+y María Inés no tienen cuenta de Google con ese correo.
+
+El costo es que un enlace que se filtre deja editar a cualquiera, y lo que se
+escribe en las planillas la rutina lo lee como instrucciones. Por eso los enlaces
+solo van en los correos a los inspectores, el correo les pide no reenviarlos
+fuera del equipo, y las planillas no aparecen en búsquedas. Si un enlace llega a
+quien no corresponde, ver «Mantención».
 
 ### Qué hace en cada caso
 
 | Pasa | Qué hace |
 |---|---|
-| Un reporte nuevo en `resultados/` | Crea su planilla en la carpeta de la categoría y le escribe al inspector que quedó en `historial/`. |
+| Un reporte nuevo en `resultados/` | Crea su planilla en la carpeta de la categoría, la deja abierta con su enlace y le escribe al inspector que quedó en `historial/`. |
 | El consolidado del mes | Lo publica en «Consolidados mensuales» y les escribe a los tres. |
 | Un inspector escribe en una planilla | La copia a `revision/` cuando lleva 5 minutos sin editarse. Si no cambió ningún valor, no hace nada. |
 | Solo cambió una columna de la rutina, o nada | No la copia: una planilla sin nada escrito por el inspector no cuenta como revisada. |
@@ -166,7 +175,7 @@ activada para el script», actívala a mano:
 3. En el registro de ejecución tienen que aparecer cuatro líneas:
    - `Conexión con GitHub: OK. El token puede leer y escribir en …`
    - `Conexión con Google Drive: OK (qf.lukasgallegos@gmail.com).`
-   - `Carpeta de las planillas: https://drive.google.com/drive/folders/… — compartida con: emillan@ispch.cl, lgallegos@ispch.cl, mmedina@ispch.cl.`
+   - `Carpeta de las planillas: https://drive.google.com/drive/folders/… — compartida con: nadie. Cada planilla se abre con su enlace, sin cuenta de Google.`
    - `Listo: cada 15 minutos se publican los reportes nuevos, …`
 
    Si en cambio aparece un error, dice qué falta. Los más comunes:
@@ -180,22 +189,22 @@ activada para el script», actívala a mano:
      paso 2 (la versión vigente lo pide), ejecuta `instalar` y acepta los
      permisos.
 
-### 6. Que cada inspector pueda abrir la carpeta
+### 6. Cómo entran los inspectores
 
-A cada uno le llega una invitación de Google Drive: «Lukas compartió contigo la
-carpeta Fiscalización web DM». Para abrirla necesita una **cuenta de Google con
-su correo del ISP**. Si no la tiene, se crea en un minuto y sin Gmail:
+No hay que hacer nada: no hay invitación ni hace falta cuenta de Google. Cada
+inspector abre la planilla con el botón del correo del reporte, que le llega a
+su correo del ISP.
 
-1. En <https://accounts.google.com/signup>, nombre y fecha de nacimiento.
-2. Cuando pida una dirección, **«Usar mi dirección de correo electrónico
-   actual»**, y escribir el correo del ISP.
-3. Escribir el código que Google manda a ese correo.
+- Si su navegador está conectado a una cuenta de Google del ISP y Google dice
+  que no tiene acceso, que la abra en una **ventana de incógnito**: el ISP no deja
+  que sus cuentas abran archivos de fuera, pero el enlace funciona sin cuenta.
+- Tú entras a la carpeta, y a todas las planillas, con qf.lukasgallegos@gmail.com,
+  que es la dueña.
 
-Si un inspector prefiere entrar con otra cuenta de Google, o si el registro de la
-ejecución dijo «NO se pudo compartir con …», pon la dirección con la que entra a
-Google en `cuentasGoogle`, al principio del script en script.google.com, y
-ejecuta `instalar` de nuevo. Lo ya compartido no se repite. Cambia también la
-copia del repositorio (ver «Mantención»).
+Si algún día quieren entrar con cuentas en vez de enlaces (por ejemplo, Gmail
+personales), pon esas direcciones en `cuentasGoogle`, al principio del script en
+script.google.com, y ejecuta `instalar` de nuevo: les comparte la carpeta. Las
+@ispch.cl no sirven. No las copies al repositorio, que es público.
 
 ### 7. Probar con el reporte de hoy
 
@@ -235,10 +244,9 @@ Un texto que puedes mandarles:
 > Desde hoy, cada reporte les llega como **planilla en línea**: el correo
 > «Fiscalización web DM — categoría — fecha» trae el botón «Abrir la planilla».
 > Completen ahí «Decisión final» y «Observaciones del inspector»: se guarda solo,
-> y no hay que descargar, devolver ni responder nada. Las planillas también están
-> en Google Drive, en «Compartido conmigo» → «Fiscalización web DM». Para abrirlas
-> hace falta una cuenta de Google con el correo del ISP; si no la tienen, se crea
-> en accounts.google.com con «Usar mi dirección de correo electrónico actual».
+> y no hay que descargar, devolver ni responder nada. No hace falta cuenta de
+> Google; si les dice que no tienen acceso, ábranla en una ventana de incógnito.
+> El enlace deja editar a quien lo tenga: no lo reenvíen fuera del equipo.
 
 ## Mantención
 
@@ -246,13 +254,19 @@ Un texto que puedes mandarles:
   Crea uno nuevo (paso 1) y reemplaza el valor de `GITHUB_TOKEN` (paso 3). No hay
   que volver a instalar: lo pendiente se publica y se guarda solo.
 - **Si cambia un inspector o su correo:** hay que cambiarlo en:
-  - `inspectores` y `cuentasGoogle` del script en script.google.com, y después
-    ejecutar `instalar` para compartirle la carpeta;
+  - `inspectores` del script en script.google.com;
   - el mismo bloque en `planillas.gs` de este repositorio;
   - `INSPECTORES` en `scripts/rotacion.py`.
 
   `tests/test_planillas_google.py` falla si el repositorio y `rotacion.py` no
   coinciden.
+- **Si un enlace llega a quien no corresponde:** en Drive, abre esa planilla →
+  **Compartir** → en «Acceso general», cambia «Cualquier persona con el enlace» a
+  **Restringido**. El enlace deja de abrir para todos, también para el inspector
+  (el enlace de un archivo no se puede cambiar por otro). Lo ya escrito queda, y
+  en **Archivo → Historial de versiones** ves si alguien cambió algo. Si todavía
+  falta revisarla, el inspector te pasa sus decisiones y las escribes tú en la
+  planilla: se guarda igual. Las demás planillas no cambian.
 - **Si una planilla se borra por error:** sácala de la papelera de Drive de
   qf.lukasgallegos@gmail.com. No se vuelve a crear sola, salvo que la rutina
   vuelva a generar ese reporte.

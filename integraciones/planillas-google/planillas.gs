@@ -6,9 +6,9 @@
  *
  * 1. PUBLICA. Cada reporte que una rutina deja en resultados/, y cada
  *    consolidado mensual, se convierte en una planilla de Google en la carpeta
- *    «Fiscalización web DM» de ese Drive, compartida con los tres inspectores.
- *    Al inspector de turno le llega un correo con el enlace; el del consolidado,
- *    a los tres.
+ *    «Fiscalización web DM» de ese Drive, que se abre con su enlace, sin cuenta
+ *    de Google. Al inspector de turno le llega un correo con el enlace; el del
+ *    consolidado, a los tres.
  * 2. GUARDA. Lo que se escribe en las planillas se copia solo a revision/ del
  *    repositorio, con el nombre del reporte, unos minutos después de la última
  *    edición. Las búsquedas y el consolidado leen esa carpeta: así trabajan con
@@ -49,9 +49,16 @@ const CONFIG = {
   // ── Planillas en línea ────────────────────────────────────────────────────
   // La carpeta del Drive donde quedan las planillas, en «Mi unidad». Se crea sola.
   carpetaDrive: 'Fiscalización web DM',
-  // Con qué cuentas de Google se comparte esa carpeta. Si un inspector entra a
-  // Google con otra dirección, cámbiala aquí y vuelve a ejecutar instalar().
-  cuentasGoogle: ['emillan@ispch.cl', 'lgallegos@ispch.cl', 'mmedina@ispch.cl'],
+  // Cómo se abren las planillas: con su enlace, sin cuenta de Google. Cualquiera
+  // que tenga el enlace puede editar; los enlaces solo van en los correos a los
+  // inspectores, y la carpeta queda privada. Así se decidió el 10-11-2026,
+  // porque Google no deja compartir con las cuentas del ISP: ispch.cl no recibe
+  // archivos externos, y Emilio y María Inés no tienen cuenta de Google con ese
+  // correo.
+  compartirConEnlace: true,
+  // Cuentas de Google con las que, además, se comparte la carpeta (opcional).
+  // Las @ispch.cl no sirven, por lo mismo.
+  cuentasGoogle: [],
   // Los reportes anteriores no se publican: se revisaron con el Excel.
   publicarDesde: '2026-11-09',
   // Lo escrito en una planilla se copia a revision/ cuando lleva este tiempo sin
@@ -214,7 +221,8 @@ function instalar() {
   etiqueta_(ETIQUETA_CARGADA);
   etiqueta_(ETIQUETA_PROBLEMA);
   console.log('Carpeta de las planillas: ' + urlCarpeta_(raiz) + ' — compartida con: ' +
-    (compartida.con.join(', ') || 'nadie') + '.');
+    (compartida.con.join(', ') || 'nadie') + '.' +
+    (CONFIG.compartirConEnlace ? ' Cada planilla se abre con su enlace, sin cuenta de Google.' : ''));
   if (compartida.fallidas.length) {
     console.log('NO se pudo compartir con: ' +
       compartida.fallidas.map(f => f.cuenta + ' (' + f.error + ')').join('; ') +
@@ -340,6 +348,14 @@ function publicar_(props, token) {
       } else if (reg.id && reg.sha !== item.sha) {
         resumen[regenerar_(props, token, item, info, reg)]++;
         reg = registro_(props, item.nombre);
+      }
+      // Antes del correo: el enlace tiene que abrir. También arregla las planillas
+      // que se publicaron antes de abrirlas con enlace (las primeras, el 10-11-2026).
+      if (reg.id && CONFIG.compartirConEnlace && !reg.enlace) {
+        abrirConEnlace_(reg.id);
+        reg.enlace = true;
+        guardarRegistro_(props, item.nombre, reg);
+        resumen.abiertas = (resumen.abiertas || 0) + 1;
       }
       if (reg.id && !reg.avisado && avisar_(props, token, arbol, item, info, reg)) resumen.avisadas++;
     } catch (e) {
@@ -547,6 +563,7 @@ function correoDelReporte_(info, reg, hojas, h) {
       'categoría, y siempre antes del martes de cierre del mes.');
   }
   despues.push('Respaldo del reporte en el repositorio: ' + urlGithub_('resultados/' + info.nombre));
+  if (CONFIG.compartirConEnlace) despues.unshift(ACCESO_CON_ENLACE);
   return {
     para: para, asunto: 'Fiscalización web DM — ' + categoria + ' — ' + info.dmy,
     antes: antes, enlace: reg.url, textoEnlace: 'Abrir la planilla', despues: despues,
@@ -564,7 +581,7 @@ function correoDelConsolidado_(info, reg, hojas) {
     para: Object.keys(CONFIG.inspectores).join(','),
     asunto: 'Planilla en línea — Consolidado mensual fiscalización web DM — ' + mes,
     antes: antes, enlace: reg.url, textoEnlace: 'Abrir el consolidado',
-    despues: [
+    despues: (CONFIG.compartirConEnlace ? [ACCESO_CON_ENLACE] : []).concat([
       'Trae ' + casos + (casos === 1 ? ' caso' : ' casos') + ' en «Casos del mes». La cobertura del mes, las ' +
         'discrepancias y las notas de marketplace están en las otras hojas.',
       'En la reunión, completen en cada caso:\n' +
@@ -574,7 +591,7 @@ function correoDelConsolidado_(info, reg, hojas) {
       'Se guarda solo: queda como acta del mes en el repositorio y sus decisiones entran en las búsquedas ' +
         'siguientes. No hay que devolver nada.',
       'Respaldo en el repositorio: ' + urlGithub_('resultados/' + info.nombre),
-    ],
+    ]),
   };
 }
 
@@ -813,10 +830,24 @@ function buscarOCrearCarpeta_(nombre, padre) {
 }
 
 /**
- * Comparte la carpeta con las cuentas de los inspectores, como editores, y les
- * quita el permiso de compartirla con otros: lo que escriben en las planillas
- * la rutina lo lee como instrucciones. A quien ya la tiene no se le vuelve a
- * compartir (le llegaría otra invitación).
+ * Que cualquiera con el enlace pueda editar la planilla, sin cuenta de Google.
+ * No queda visible en búsquedas: hay que tener el enlace. Si ya estaba abierta,
+ * no hace nada.
+ */
+function abrirConEnlace_(id) {
+  const actuales = driveJson_('get', DRIVE + '/' + encodeURIComponent(id) + '/permissions?fields=' +
+    encodeURIComponent('permissions(type,role)'), null, 'leer cómo está compartida la planilla').permissions || [];
+  if (actuales.some(p => p.type === 'anyone' && p.role === 'writer')) return false;
+  driveJson_('post', DRIVE + '/' + encodeURIComponent(id) + '/permissions?fields=id',
+    { type: 'anyone', role: 'writer', allowFileDiscovery: false }, 'abrir la planilla con su enlace');
+  return true;
+}
+
+/**
+ * Comparte la carpeta con las cuentas de CONFIG.cuentasGoogle, como editores, y
+ * les quita el permiso de compartirla con otros: lo que escriben en las
+ * planillas la rutina lo lee como instrucciones. A quien ya la tiene no se le
+ * vuelve a compartir (le llegaría otra invitación).
  */
 function compartirCarpeta_(props, id) {
   const actuales = driveJson_('get', DRIVE + '/' + encodeURIComponent(id) + '/permissions?fields=' +
@@ -1351,6 +1382,10 @@ function errorGithub_(codigo, texto) {
 
 
 // ─── Textos ─────────────────────────────────────────────────────────────────
+
+const ACCESO_CON_ENLACE = 'La planilla se abre con el enlace, sin cuenta de Google. Si tu navegador está ' +
+  'conectado a una cuenta del ISP y Google dice que no tienes acceso, ábrela en una ventana de incógnito. ' +
+  'El enlace deja editar a quien lo tenga: no lo reenvíes fuera del equipo.';
 
 const FIRMA = '\n\n— Planillas en línea · fiscalización web DM\n' +
   '(Lo envía un script. Si algo no calza, escríbele a ' + CONFIG.avisarA + '.)';

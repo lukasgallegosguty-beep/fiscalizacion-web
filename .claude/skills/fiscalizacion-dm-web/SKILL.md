@@ -322,9 +322,9 @@ que servir antes y después.
 
 **Si el paso 6 dice que no se le escribe al inspector** (el script ya está
 instalado), no mandar ningún correo. Con el reporte en `main`, el script lo
-convierte en una planilla de Google en la carpeta de la categoría, compartida con
-los tres inspectores, y le manda al inspector que quedó en `historial/` el enlace
-con el resumen. Si la rutina también le escribe, le llegan dos correos, y el de
+convierte en una planilla de Google en la carpeta de la categoría y le manda al
+inspector que quedó en `historial/` el enlace, con el resumen; la planilla se
+abre con ese enlace, sin cuenta de Google. Si la rutina también le escribe, le llegan dos correos, y el de
 la rutina le pediría algo que ya no se hace. Lo que sí le toca a la rutina es
 dejar bien el registro de `rotacion.py --avanzar`, porque de ahí sale ese correo:
 el inspector, las cifras (`--hallazgos` y `--detectados`) y, en `--notas`, lo que
