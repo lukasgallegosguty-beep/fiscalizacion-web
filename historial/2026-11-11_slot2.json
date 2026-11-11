@@ -1,0 +1,12 @@
+{
+  "categoria": "jeringas-con-agujas",
+  "nombre": "Jeringas con agujas hipodérmicas",
+  "fecha": "2026-11-11",
+  "dia": "miércoles",
+  "slot": 2,
+  "archivo": "Fiscalizacion_Web_DM_jeringas-con-agujas_11-11-2026.xlsx",
+  "inspector": "lgallegos@ispch.cl",
+  "hallazgos": 10,
+  "detectados": 52,
+  "notas": "Se descartaron por jurisdicción 8 tiendas extranjeras (México, EE.UU., Canadá, Colombia, España y desertcart). Mercado Libre, Ripley y Yapo bloquearon el acceso (403) y Lider mostró una página de bloqueo; las pistas de ML, entre ellas Deltamed 3 ml 23G, sin registro ISP, quedaron en la hoja Búsquedas Marketplace."
+}
