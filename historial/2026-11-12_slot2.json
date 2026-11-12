@@ -1,0 +1,12 @@
+{
+  "categoria": "kits-vih-profesional",
+  "nombre": "Kits VIH uso profesional",
+  "fecha": "2026-11-12",
+  "dia": "jueves",
+  "slot": 2,
+  "archivo": "Fiscalizacion_Web_DM_kits-vih-profesional_12-11-2026.xlsx",
+  "inspector": "lgallegos@ispch.cl",
+  "hallazgos": 2,
+  "detectados": 2,
+  "notas": "3 ofertas descartadas por jurisdicción (HyM Care-Colombia, Labomersa-Ecuador, Certum Diagnostics-México). Mercado Libre bloqueó el acceso (403): 5 publicaciones pendientes de verificación manual en la hoja Búsquedas Marketplace; vihtest.cl publicó 2 combos nuevos (VIH+Clamidia, VIH+Sífilis) del mismo producto ARIA ya alertado en N°054-26, no reportados por criterio de la reunión."
+}
