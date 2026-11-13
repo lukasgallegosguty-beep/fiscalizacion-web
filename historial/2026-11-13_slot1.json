@@ -1,0 +1,12 @@
+{
+  "categoria": "preservativos-masculinos",
+  "nombre": "Preservativos masculinos (látex y sintéticos)",
+  "fecha": "2026-11-13",
+  "dia": "viernes",
+  "slot": 1,
+  "archivo": "Fiscalizacion_Web_DM_preservativos-masculinos_13-11-2026.xlsx",
+  "inspector": "lgallegos@ispch.cl",
+  "hallazgos": 10,
+  "detectados": 20,
+  "notas": "Descartadas por jurisdicción 4 tiendas: entre-nosotros.com y natissex.com (México) y ubuy.cl y biovea.com/cl (venta internacional, mismo criterio que Cosmetis). Bloquearon el acceso Mercado Libre, Ripley y Toylover (403); Paris carga la grilla por JavaScript y sus fichas de vendedores externos responden 404; sagami.cl, condoneria.cl y lacasadeloscondones.cl no resolvieron."
+}
