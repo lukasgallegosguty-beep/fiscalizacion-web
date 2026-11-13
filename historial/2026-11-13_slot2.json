@@ -1,0 +1,12 @@
+{
+  "categoria": "preservativos-femeninos",
+  "nombre": "Preservativos femeninos",
+  "fecha": "2026-11-13",
+  "dia": "viernes",
+  "slot": 2,
+  "archivo": "Fiscalizacion_Web_DM_preservativos-femeninos_13-11-2026.xlsx",
+  "inspector": "lgallegos@ispch.cl",
+  "hallazgos": 0,
+  "detectados": 0,
+  "notas": "Las 7 ofertas chilenas detectadas ya estaban en el circuito (APROFAR, FC2, Ormelle alerta 368); se descartaron ~10 ofertas por jurisdicción (tiendas de EE.UU., Reino Unido, Alemania, España y Mercado Libre México). Bloquearon el acceso Mercado Libre Chile (verificación de cuenta/403), Ripley (403) y Yapo (Cloudflare 403)."
+}
