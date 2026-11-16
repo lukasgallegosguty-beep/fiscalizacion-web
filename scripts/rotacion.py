@@ -21,8 +21,9 @@ de Microsoft Planner del equipo (noviembre de 2026 a diciembre de 2027):
     Semana 3     búsqueda   revisa María Inés Medina
     (Semana 4)   búsqueda   solo en los meses de 5 semanas; quién revisa lo dice
                  la tabla CUARTA_SEMANA, y fuera de ella le toca a Emilio
-    ÚLTIMA       SIN BÚSQUEDA. El martes se emite el consolidado mensual a los
-                 tres y se reúnen a las 09:00 a resolver qué se denuncia.
+    ÚLTIMA       SIN BÚSQUEDA. El jueves se emite el consolidado mensual a los
+                 tres y se reúnen a las 09:00 a resolver qué se denuncia. (Hasta
+                 octubre de 2026 fue el martes: ver INICIO_CIERRE_JUEVES.)
 
 A qué mes pertenece una semana de lunes a viernes (ver periodo_de_semana):
 
@@ -192,16 +193,22 @@ ORGANIZADOR = {"nombre": "Lukas Gallegos", "email": "lgallegos@ispch.cl"}
 
 # El cierre va siempre en la ÚLTIMA semana del mes, sea la cuarta o la quinta.
 # Todas las anteriores fiscalizan: así ninguna semana queda sin trabajo.
-DIA_CONSOLIDACION = 1        # martes (0 = lunes)
+# Desde el cierre de noviembre de 2026 cae el JUEVES de esa semana (decidido el
+# 16-11-2026): deja tres días hábiles para terminar las revisiones. Septiembre y
+# octubre de 2026 cerraron el martes, y así tienen que seguir dando.
+DIA_CONSOLIDACION = 3           # jueves (0 = lunes)
+DIA_CONSOLIDACION_ANTERIOR = 1  # martes, hasta el cierre de octubre de 2026
+INICIO_CIERRE_JUEVES = (2026, 11)
 HORA_CONSOLIDACION = "07:30"  # envío del consolidado
 HORA_REUNION = (9, 0)         # inicio de la reunión mensual
 DURACION_REUNION_MIN = 60
 # La reunión va en Google Calendar como un evento INDIVIDUAL por mes, no como
 # uno recurrente: la única recurrencia que expresa estas fechas es RDATE (fechas
-# explícitas), porque el martes de la última semana no siempre es el "cuarto
-# martes del mes": entre 2027 y 2036 no lo es en 9 de los 120 meses, y en el
-# Planner, en septiembre de 2027. Outlook no soporta RDATE y rechaza la
-# invitación entera, así que un evento por mes es lo único que abre en ambos.
+# explícitas), porque el jueves de la última semana no siempre es el "cuarto
+# jueves del mes": entre 2027 y 2036 no lo es en 27 de los 120 meses, la primera
+# vez en abril de 2027 (el cierre es el 29-04 y el cuarto jueves, el 22-04).
+# Outlook no soporta RDATE y rechaza la invitación entera, así que un evento por
+# mes es lo único que abre en ambos.
 
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
          "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -351,9 +358,13 @@ def lunes_cierre(anio, mes):
     return semanas_del_mes(anio, mes)[-1]
 
 
-def martes_consolidacion(anio, mes):
-    """El martes de la última semana: día del consolidado y de la reunión."""
-    return lunes_cierre(anio, mes) + timedelta(days=DIA_CONSOLIDACION)
+def dia_consolidacion(anio, mes):
+    """El día del consolidado y de la reunión: el jueves de la última semana.
+
+    Hasta el cierre de octubre de 2026 fue el martes (INICIO_CIERRE_JUEVES).
+    """
+    dia = DIA_CONSOLIDACION if (anio, mes) >= INICIO_CIERRE_JUEVES else DIA_CONSOLIDACION_ANTERIOR
+    return lunes_cierre(anio, mes) + timedelta(days=dia)
 
 
 def instante_utc(fecha, hhmm):
@@ -376,7 +387,7 @@ def proximo_cierre(despues_de):
         mes += 1
         if mes > 12:
             mes, anio = 1, anio + 1
-        siguiente = martes_consolidacion(anio, mes)
+        siguiente = dia_consolidacion(anio, mes)
         if siguiente > despues_de:
             return siguiente
     raise RuntimeError("no se pudo calcular el próximo cierre")
@@ -722,13 +733,14 @@ def construir_plan(fecha=None, slot=1):
     # responde habil: false igual que un fin de semana, para que la rutina de
     # búsqueda corte en el paso 1 sin gastar la corrida.
     if modo != "busqueda":
-        martes = martes_consolidacion(sem["anio"], sem["mes"])
+        cierre = dia_consolidacion(sem["anio"], sem["mes"])
         base["motivo"] = (
             f"semana {sem['n']} de {sem['n']} de {sem['mes_nombre']}: última semana "
             f"del mes, reservada al análisis mensual. No se fiscaliza. El consolidado "
-            f"se emite el martes {martes.strftime('%d-%m-%Y')} a las {HORA_CONSOLIDACION}."
+            f"se emite el {DIAS[cierre.weekday()]} {cierre.strftime('%d-%m-%Y')} "
+            f"a las {HORA_CONSOLIDACION}."
         )
-        base["fecha_consolidacion"] = martes.isoformat()
+        base["fecha_consolidacion"] = cierre.isoformat()
         return dict(habil=False, **base)
 
     cat = categoria_de(fecha, slot)
@@ -839,17 +851,17 @@ def bloques_del_mes(anio, mes):
 def plan_consolidacion(fecha=None):
     """Plan del cierre mensual: qué mes se consolida, cuándo y con qué insumos.
 
-    `es_hoy` es lo que debe mirar la rutina: sale True solo el martes de la
-    última semana del mes. El trigger se dispara todos los martes y este campo
-    es el filtro real. (Del 14 al 29-09-2026 fue un disparo único que se
+    `es_hoy` es lo que debe mirar la rutina: sale True solo el jueves de la
+    última semana del mes (el martes, hasta octubre de 2026). El trigger se
+    dispara todos los jueves y este campo es el filtro real. (Del 14 al 29-09-2026 fue un disparo único que se
     reprogramaba con `proximo_cierre_utc`; falló porque la rutina disparada no
     tiene las herramientas para reprogramarse. Ver RUTINA.md.)
     """
     fecha = fecha or date.today()
     sem = semana_de(fecha)
-    martes = martes_consolidacion(sem["anio"], sem["mes"])
-    proximo_siguiente = proximo_cierre(martes)
-    reunion = datetime.combine(martes, time(*HORA_REUNION))
+    cierre = dia_consolidacion(sem["anio"], sem["mes"])
+    proximo_siguiente = proximo_cierre(cierre)
+    reunion = datetime.combine(cierre, time(*HORA_REUNION))
     esperados = bloques_del_mes(sem["anio"], sem["mes"])
 
     # Los devueltos se buscan por ATRIBUCIÓN, no por nombre exacto: los
@@ -880,11 +892,12 @@ def plan_consolidacion(fecha=None):
         "semana_mes": sem["n"],
         "semanas_del_mes": sem["total"],
         "es_semana_consolidacion": sem["ultima"],
-        "es_hoy": fecha == martes,
-        "fecha": martes.isoformat(),
-        "fecha_dmy": martes.strftime("%d-%m-%Y"),
+        "es_hoy": fecha == cierre,
+        "fecha": cierre.isoformat(),
+        "fecha_dmy": cierre.strftime("%d-%m-%Y"),
+        "dia": DIAS[cierre.weekday()],
         "hora_envio": HORA_CONSOLIDACION,
-        "instante_utc": instante_utc(martes, HORA_CONSOLIDACION),
+        "instante_utc": instante_utc(cierre, HORA_CONSOLIDACION),
         # Informativos. La rutina ya NO se reprograma con esto (ver el docstring):
         # sirven para decir en la notificación cuándo es el próximo cierre, y
         # para rearmar a mano si alguna vez vuelve a usarse un disparo único.
@@ -943,7 +956,7 @@ def pendientes(fecha=None, desde=PRIMER_MES_CON_CICLO):
     por_mes, por_inspector = {}, {}
     anio, mes = desde
     while (anio, mes) <= (sem["anio"], sem["mes"]):
-        plan = plan_consolidacion(martes_consolidacion(anio, mes))
+        plan = plan_consolidacion(dia_consolidacion(anio, mes))
         faltan = [b for b in plan["bloques_esperados"]
                   if date.fromisoformat(b["fecha"]) <= fecha
                   and b["reporte"] and not b["revisado"] and not b["feriado"]]
@@ -1077,7 +1090,7 @@ def main():
             print(json.dumps(con, ensure_ascii=False, indent=2))
             return 0 if con["es_hoy"] else 3
         print(f"Periodo        : {con['mes_nombre']} {con['anio']}  ({con['periodo']})")
-        print(f"Consolidado    : martes {con['fecha_dmy']} a las {con['hora_envio']}")
+        print(f"Consolidado    : {con['dia']} {con['fecha_dmy']} a las {con['hora_envio']}")
         print(f"Reunión        : {con['reunion_inicio'][11:16]}-{con['reunion_fin'][11:16]} "
               f"({con['duracion_min']} min)")
         print(f"Destinatarios  : {', '.join(con['destinatarios'])}")

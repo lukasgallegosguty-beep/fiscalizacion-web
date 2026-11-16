@@ -6,7 +6,7 @@ línea).
 
 **En una línea:** a las 07:30 las rutinas buscan. Unos minutos después, al
 inspector de turno le llega el enlace a la planilla en línea, que revisa ahí
-mismo y que se guarda sola. El martes de la última semana del mes llega el
+mismo y que se guarda sola. El jueves de la última semana del mes llega el
 consolidado, también como planilla, y los tres deciden en la reunión qué se
 denuncia.
 
@@ -19,7 +19,7 @@ denuncia.
 | Cada 15 minutos | Lo que los inspectores escriben en las planillas se copia a `revision/`, unos minutos después de que dejan de editar. |
 | En cada búsqueda | La rutina usa lo que escribieron los inspectores en esa categoría y lo que se resolvió en las reuniones de cierre. No repite enlaces que ya están en un reporte anterior, revisado o no, y sigue las observaciones y las justificaciones. |
 | Semana de cierre | No hay búsquedas. Las rutinas igual se despiertan, ven que es semana de cierre y se detienen: es lo esperado. |
-| Martes de la semana de cierre, temprano | Llegan a los tres el resumen del consolidado y, en un correo aparte, su planilla en línea. A las 09:00 es la reunión, que ya está en el calendario. |
+| Jueves de la semana de cierre, temprano | Llegan a los tres el resumen del consolidado y, en un correo aparte, su planilla en línea. A las 09:00 es la reunión, que ya está en el calendario. |
 | Feriados | La búsqueda corre igual. El correo de la planilla avisa que es feriado: ese día no se exige la revisión, y el cierre no la cuenta como pendiente. |
 
 ### Qué categoría toca cada día
@@ -44,16 +44,16 @@ del mes es la de cierre: no se busca.
 |---|---|
 | 09-11-2026 | Lukas |
 | 16-11-2026 | María Inés |
-| 23-11-2026 | Cierre de noviembre (consolidado el martes 24-11) |
+| 23-11-2026 | Cierre de noviembre (consolidado el jueves 26-11) |
 | 30-11-2026 | Emilio |
 | 07-12-2026 | Lukas |
 | 14-12-2026 | María Inés |
-| 21-12-2026 | Cierre de diciembre (consolidado el martes 22-12) |
+| 21-12-2026 | Cierre de diciembre (consolidado el jueves 24-12) |
 | 28-12-2026 | Emilio (es la semana 1 de enero de 2027) |
 | 04-01-2027 | Lukas |
 | 11-01-2027 | María Inés |
 | 18-01-2027 | Lukas (cuarta semana, según el Planner) |
-| 25-01-2027 | Cierre de enero (consolidado el martes 26-01) |
+| 25-01-2027 | Cierre de enero (consolidado el jueves 28-01) |
 
 El calendario completo hasta diciembre de 2027 está en `tests/turnos_planner.csv`.
 Para cualquier semana: `python3 scripts/rotacion.py --semana --fecha <lunes>`.
@@ -86,7 +86,7 @@ le faltan.
 
 **Plazo.** Revisa cada planilla antes de que vuelva a tocar su categoría, es
 decir, el mismo día de la semana siguiente: así tus observaciones ya entran en
-esa búsqueda. Y siempre antes del martes de cierre, porque el consolidado se arma
+esa búsqueda. Y siempre antes del jueves de cierre, porque el consolidado se arma
 esa mañana con lo que haya.
 
 **Si te equivocaste,** corrige en la misma planilla: se vuelve a guardar sola.
@@ -114,9 +114,9 @@ O, en una sesión de Claude Code sobre este repositorio: «¿qué revisiones fal
 Las que van a medias salen con las filas que les faltan.
 
 **Lunes de la semana de cierre.** Lo mismo, con urgencia: el consolidado se arma
-el martes temprano con lo que esté escrito en las planillas a esa hora.
+el jueves temprano con lo que esté escrito en las planillas a esa hora.
 
-**Martes de cierre.**
+**Jueves de cierre.**
 - Temprano llegan el resumen y la planilla del consolidado; la reunión es a las
   09:00.
 - En la reunión se completan en la planilla, caso por caso:

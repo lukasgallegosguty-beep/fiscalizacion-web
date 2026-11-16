@@ -8,7 +8,7 @@ primera no arrastre a la segunda) y una cierra el mes.
 | Opción | Bloque 1 | Bloque 2 | Consolidado mensual |
 |---|---|---|---|
 | Nombre | Fiscalización web — bloque 1 | Fiscalización web — bloque 2 | Fiscalización web — consolidado mensual |
-| Frecuencia | Lun–Vie 07:30 (hora Chile) | Lun–Vie 07:30 | **Todos los martes** 10:30 UTC; trabaja solo el de cierre |
+| Frecuencia | Lun–Vie 07:30 (hora Chile) | Lun–Vie 07:30 | **Todos los jueves** 10:30 UTC; trabaja solo el de cierre |
 | Repositorio | `lukasgallegosguty-beep/fiscalizacion-web` | igual | igual |
 | Conectores | Gmail | Gmail | Gmail **y Google Calendar** |
 | Rama de salida | ninguna: la fija el prompt (`main`) | igual | igual |
@@ -17,9 +17,14 @@ Los dos bloques diarios se disparan más veces de las que trabajan, y eso es a
 propósito: cortan en el paso 1 durante la semana de cierre. El filtro vive en
 `scripts/rotacion.py`, no en el cron.
 
-El consolidado también se dispara de más: **todos los martes**, con cron
-`30 10 * * 2`, y trabaja solo el martes de la última semana del mes. Los demás
-martes corta en el paso 1 en una línea, sin escribirle a nadie.
+El consolidado también se dispara de más: **todos los jueves**, con cron
+`30 10 * * 4`, y trabaja solo el jueves de la última semana del mes. Los demás
+jueves corta en el paso 1 en una línea, sin escribirle a nadie.
+
+**El cierre es el jueves desde noviembre de 2026** (decidido el 16-11-2026): deja
+tres días hábiles de la semana de cierre para terminar las revisiones. Hasta
+octubre de 2026 fue el martes, y `rotacion.py` conserva esa fecha para septiembre
+y octubre, porque de ella dependen los consolidados ya emitidos.
 
 **Por qué no un disparo único que se reprograme solo.** Así estuvo del 14 al 29
 de septiembre de 2026, y falló el primer día que tenía que trabajar. El 29-09 la
@@ -45,7 +50,7 @@ al mes —el disparador tiene las notificaciones apagadas— y a cambio no tiene
 cadena que se pueda cortar.
 
 **El repositorio se adjunta a mano, en la interfaz.** Sin él, la rutina manda una
-ALERTA a lgallegos@ispch.cl cada martes hasta que alguien lo adjunte:
+ALERTA a lgallegos@ispch.cl cada jueves hasta que alguien lo adjunte:
 https://claude.ai/code/routines/trig_01SWEY7vJV9ZEYvE9vjajD43
 
 **Nada falla en silencio.** El prompt del cierre tiene una regla general: cada
@@ -110,7 +115,7 @@ de Microsoft Planner del equipo (noviembre de 2026 a diciembre de 2027):
 | 2 | Fiscalización, 10 categorías | Lukas Gallegos · lgallegos@ispch.cl |
 | 3 | Fiscalización, 10 categorías | María Inés Medina · mmedina@ispch.cl |
 | 4 | Solo en meses de 5 semanas: fiscalización | Según la tabla de abajo |
-| **Última** | **Sin búsquedas.** Martes 07:30 consolidado, 09:00 reunión | Los tres |
+| **Última** | **Sin búsquedas.** Jueves 07:30 consolidado, 09:00 reunión | Los tres |
 
 **La cuarta semana** solo existe en los meses de cinco semanas, y el Planner la
 reparte mes a mes:
@@ -131,7 +136,7 @@ para Emilio.
 **A qué mes pertenece una semana.** Desde el periodo 2026-11, una semana de lunes
 a viernes es del mes de su **viernes**, que es como la cuenta el Planner. La del
 lunes 28-12-2026 termina el viernes 01-01-2027: es la semana 1 de enero, no la
-quinta de diciembre, y por eso diciembre de 2026 cierra el martes 22-12.
+quinta de diciembre, y por eso diciembre de 2026 cierra el jueves 24-12.
 
 Hasta 2026-10 la semana fue del mes de su **miércoles**, donde cae la mayoría de
 sus días hábiles: la del lunes 31-08-2026 es la semana 1 de septiembre.
@@ -149,8 +154,8 @@ mes**: el mes siempre cierra al final y ninguna semana queda sin trabajo.
 **Cómo se comprueba.** `tests/turnos_planner.csv` tiene el Planner semana por
 semana, de septiembre de 2026 a diciembre de 2027, y
 `python3 -m unittest discover -s tests -v` verifica día por día y bloque por
-bloque que `rotacion.py` asigna lo mismo, y que cada cierre cae el martes de su
-semana.
+bloque que `rotacion.py` asigna lo mismo, que cada cierre cae el jueves de su
+semana (el martes en septiembre y octubre de 2026) y que ninguno cae en feriado.
 
 **Qué pasaba antes.** La semana pertenecía al mes de su lunes y el cierre era
 siempre la cuarta. Eso dejaba semanas muertas: la del 31-08-2026 quedó fuera del
@@ -192,7 +197,7 @@ semana siguiente vuelve a tocar esa categoría. No hay estado que se descuadre.
 
 ## La última semana: cierre del mes
 
-No se fiscaliza. El martes:
+No se fiscaliza. El jueves:
 
 - **07:30** — `scripts/consolidado.py` arma un Excel con todos los casos del mes
   que sobrevivieron a la revisión. La rutina les manda a los tres el resumen por
@@ -361,18 +366,18 @@ inspector del paso 1).
 
 ## Prompt — consolidado mensual
 
-Rutina aparte, **todos los martes** a las 10:30 UTC, con los conectores **Gmail
-y Google Calendar** y el **repositorio adjunto**. Trabaja solo el martes de
+Rutina aparte, **todos los jueves** a las 10:30 UTC, con los conectores **Gmail
+y Google Calendar** y el **repositorio adjunto**. Trabaja solo el jueves de
 cierre; los demás corta en el paso 1.
 
 ```
 Ejecuta el cierre mensual de la fiscalización web de DM.
 
-Este trigger se dispara TODOS LOS MARTES a las 10:30 UTC (07:30 en Chile en
+Este trigger se dispara TODOS LOS JUEVES a las 10:30 UTC (07:30 en Chile en
 verano, 06:30 en invierno). Solo uno de cada cuatro o cinco es día de cierre: el
-martes de la última semana del mes. Los demás martes terminas en el paso 1, en
+jueves de la última semana del mes. Los demás jueves terminas en el paso 1, en
 una línea y sin escribirle a nadie. Eso no es una falla: cron no sabe expresar
-"el martes de la última semana" y el filtro real vive en el paso 1.
+"el jueves de la última semana" y el filtro real vive en el paso 1.
 
 REGLA GENERAL: NADA FALLA EN SILENCIO. El 29-09-2026 esta rutina se disparó,
 abortó a los 39 segundos por no tener el repositorio y terminó "exitosa" sin
@@ -488,9 +493,9 @@ Las reuniones están en Google Calendar como eventos INDIVIDUALES, uno por mes,
 título "Fiscalización web DM — revisión mensual de casos (<mes> <año>)",
 09:00-10:00 y los tres invitados.
 No son un evento recurrente a propósito: la recurrencia solo se puede expresar
-con RDATE (fechas explícitas), porque el martes de la última semana no siempre
-coincide con el "cuarto martes del mes" (no coincide, por ejemplo, en septiembre
-de 2027). Y Outlook no soporta RDATE: la invitación llega y no se puede agregar.
+con RDATE (fechas explícitas), porque el jueves de la última semana no siempre
+coincide con el "cuarto jueves del mes" (no coincide, por ejemplo, en abril de
+2027). Y Outlook no soporta RDATE: la invitación llega y no se puede agregar.
 Un evento por mes es lo único que abre bien en los dos calendarios.
 
   a) Busca el evento de HOY. Si existe, confirma que los tres siguen invitados.
@@ -498,7 +503,7 @@ Un evento por mes es lo único que abre bien en los dos calendarios.
   b) Extiende el horizonte: mira 12 meses hacia adelante y, si al último mes le
      falta su evento, créalo. La fecha exacta la da:
        python3 scripts/rotacion.py --consolidacion --fecha <YYYY-MM-DD> --json
-     (campo "fecha"). NO la calcules como "cuarto martes": no es lo mismo.
+     (campo "fecha"). NO la calcules como "cuarto jueves": no es lo mismo.
      Dos cosas de ese comando que NO son errores: sale con código 3 cuando la
      fecha consultada no es un día de cierre (lo normal al mirar hacia adelante)
      e imprime el JSON igual, así que lee la salida y no lo trates como fallo; y

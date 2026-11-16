@@ -92,7 +92,7 @@ por qué, y hay tres razones posibles:
 
 - **Fin de semana.**
 - **La última semana del mes.** Es la semana de análisis mensual: no se
-  fiscaliza. El martes se emite el consolidado y a las 09:00 se reúnen los tres a
+  fiscaliza. El jueves se emite el consolidado y a las 09:00 se reúnen los tres a
   decidir qué se denuncia.
 
 No hay un tercer motivo. Todo día hábil que no sea de la semana de cierre es día
@@ -268,14 +268,15 @@ varados y que nadie echó de menos.
 
 ### El cierre mensual (última semana)
 
-Esa semana no se busca. El martes a las 07:30 corre `scripts/consolidado.py`, que
+Esa semana no se busca. El jueves a las 07:30 corre `scripts/consolidado.py`, que
 junta en un solo Excel todo lo que el mes dejó en pie, y a las 09:00 los tres
 deciden qué se procesa como denuncia.
 
-**Cómo se programa.** La rutina del cierre se dispara todos los martes (cron
-`30 10 * * 2`) y trabaja solo si `rotacion.py --consolidacion --json` devuelve
-`es_hoy: true`; los demás martes corta en una línea. No hay cron de 5 campos que
-diga "el martes de la última semana", y este scheduler combina día-del-mes con
+**Cómo se programa.** La rutina del cierre se dispara todos los jueves (cron
+`30 10 * * 4`) y trabaja solo si `rotacion.py --consolidacion --json` devuelve
+`es_hoy: true`; los demás jueves corta en una línea. Hasta octubre de 2026 el
+cierre fue el martes. No hay cron de 5 campos que
+diga "el jueves de la última semana", y este scheduler combina día-del-mes con
 día-de-semana usando **OR**, así que acotar los días multiplica los disparos.
 
 Entre el 14 y el 29 de septiembre de 2026 fue un disparo único que se

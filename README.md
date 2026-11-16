@@ -72,7 +72,7 @@ semana 1: no hay una rotación que se arrastre de un mes al siguiente.
 | 2 | Lukas Gallegos | lgallegos@ispch.cl |
 | 3 | María Inés Medina | mmedina@ispch.cl |
 | 4 (solo en meses de 5 semanas) | según la tabla de abajo | |
-| Última | Cierre: no se busca; el martes sale el consolidado y se reúnen los tres | |
+| Última | Cierre: no se busca; el jueves sale el consolidado y se reúnen los tres | |
 
 Cuarta semana de los meses de cinco semanas:
 
