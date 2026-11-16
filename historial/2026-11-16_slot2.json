@@ -1,0 +1,12 @@
+{
+  "categoria": "autotest-vih",
+  "nombre": "Autotest VIH",
+  "fecha": "2026-11-16",
+  "dia": "lunes",
+  "slot": 2,
+  "archivo": "Fiscalizacion_Web_DM_autotest-vih_16-11-2026.xlsx",
+  "inspector": "mmedina@ispch.cl",
+  "hallazgos": 3,
+  "detectados": 3,
+  "notas": "Se descartaron unas 30 ofertas por jurisdicción (tiendas de España, Francia, Colombia, México, Países Bajos, EE.UU., Reino Unido, Australia/Nueva Zelanda, Canadá, Hong Kong y portales desertcart). Bloquearon el acceso Mercado Libre (antibot/403 en sitio y API), Ripley (403), Cruz Verde (API con sesión) y Farmacias Ahumada (HTTP 500 en la ficha Mylan); insumedical.cl y testrapidovih.cl siguen sin resolver."
+}
