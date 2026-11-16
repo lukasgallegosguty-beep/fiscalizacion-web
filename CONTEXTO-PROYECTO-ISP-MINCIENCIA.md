@@ -103,7 +103,7 @@ envía el enlace por correo al inspector de la semana.
 
 Tres semanas de búsqueda, con un inspector distinto revisando cada una (Emilio
 Millán, Lukas Gallegos, María Inés Medina). La **última semana del mes** no se
-fiscaliza: el martes a las 07:30 se genera un consolidado con todo lo que
+fiscaliza: el jueves a las 07:30 se genera un consolidado con todo lo que
 sobrevivió a la revisión, y a las 09:00 los tres se reúnen una hora a decidir,
 caso por caso, qué se procesa como denuncia.
 
@@ -347,7 +347,8 @@ que reaparecen:
   programaciones en UTC. Los feriados legales no se derivan de ningún cálculo y
   hay que mantenerlos a mano.
 - **Fragilidad de la programación, y un fallo que llegó a la reunión.** Ninguna
-  expresión cron estándar puede decir «el martes de la última semana del mes».
+  expresión cron estándar puede decir «el martes de la última semana del mes» (el
+  día del cierre hasta octubre de 2026; desde noviembre es el jueves).
   Se reemplazó por un disparo único que se reprogramaba a sí mismo, y **falló el
   primer día que tenía que trabajar**: el 29-09-2026 la rutina se disparó a la
   hora, abortó a los 39 segundos por no tener acceso al repositorio y la
@@ -355,7 +356,7 @@ que reaparecen:
   reunión mensual de decisión sin el consolidado; se generó a mano cinco horas
   después. El diseño dependía de dos herramientas que no existen dentro de una
   rutina automática, y ninguna prueba previa lo detectó porque se ensayaron los
-  scripts, no el entorno donde corren. Hoy se dispara todos los martes y
+  scripts, no el entorno donde corren. Hoy se dispara todos los jueves y
   descarta los que no son de cierre. **Para una solución independiente:** la
   orquestación tiene que ser propia y observable, y el éxito de una tarea no
   puede medirse por que el proceso terminó, sino por que el entregable existe.

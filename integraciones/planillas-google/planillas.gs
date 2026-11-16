@@ -560,7 +560,7 @@ function correoDelReporte_(info, reg, hojas, h) {
       'tienen su «Decisión final».'));
   if (!(h && h.feriado)) {
     despues.push('Plazo: antes del ' + fechaLarga_(sumarDias_(info.fecha, 7)) + ', cuando vuelve a tocar esta ' +
-      'categoría, y siempre antes del martes de cierre del mes.');
+      'categoría, y siempre antes del jueves de cierre del mes.');
   }
   despues.push('Respaldo del reporte en el repositorio: ' + urlGithub_('resultados/' + info.nombre));
   if (CONFIG.compartirConEnlace) despues.unshift(ACCESO_CON_ENLACE);

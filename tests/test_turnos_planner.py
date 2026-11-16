@@ -123,18 +123,38 @@ class TurnosContraElPlanner(unittest.TestCase):
                             self.assertEqual(plan["modo_semana"], "consolidacion")
                             self.assertIsNone(plan.get("inspector"))
 
-    def test_cierre_el_martes_de_su_semana(self):
-        """El cierre cae el martes de la semana CIERRE y ese día es_hoy es true."""
+    def test_cierre_el_jueves_de_su_semana(self):
+        """El cierre cae el jueves de la semana CIERRE y ese día es_hoy es true.
+
+        Desde noviembre de 2026 (decidido el 16-11-2026). Septiembre y octubre de
+        2026 cerraron el martes, y así tienen que seguir dando: de esa fecha
+        dependen los consolidados ya emitidos."""
         for f in self.filas:
             if f["tipo"] != "cierre":
                 continue
-            martes = f["lunes"] + timedelta(days=1)
+            anio, mes = anio_mes(f["periodo"])
+            dia = 3 if (anio, mes) >= (2026, 11) else 1
+            cierre = f["lunes"] + timedelta(days=dia)
             with self.subTest(periodo=f["periodo"]):
-                self.assertEqual(rotacion.martes_consolidacion(*anio_mes(f["periodo"])), martes)
-                plan = rotacion.plan_consolidacion(martes)
+                self.assertEqual(rotacion.dia_consolidacion(anio, mes), cierre)
+                plan = rotacion.plan_consolidacion(cierre)
                 self.assertTrue(plan["es_hoy"])
                 self.assertEqual(plan["periodo"], f["periodo"])
-                self.assertEqual(plan["fecha"], martes.isoformat())
+                self.assertEqual(plan["fecha"], cierre.isoformat())
+                self.assertEqual(plan["dia"], "jueves" if dia == 3 else "martes")
+                # El día anterior de esa semana no es el cierre.
+                self.assertFalse(rotacion.plan_consolidacion(cierre - timedelta(days=1))["es_hoy"])
+
+    def test_ningun_cierre_cae_en_feriado(self):
+        """La rutina del cierre corre solo los jueves: si uno cayera en feriado, no
+        habría consolidado ni reunión ese mes. Al cargar los feriados de un año
+        nuevo, este test dice si alguno choca y hay que decidir qué hacer."""
+        for f in self.filas:
+            if f["tipo"] != "cierre":
+                continue
+            cierre = rotacion.dia_consolidacion(*anio_mes(f["periodo"]))
+            with self.subTest(periodo=f["periodo"]):
+                self.assertIsNone(rotacion.feriado_de(cierre), cierre.isoformat())
 
     def test_reportes_esperados_del_cierre(self):
         """La cobertura del consolidado espera los mismos bloques e inspectores que el correo.
