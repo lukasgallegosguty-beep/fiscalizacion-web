@@ -1,0 +1,12 @@
+{
+  "categoria": "desfibriladores-dea",
+  "nombre": "Desfibriladores externos automáticos (DEA)",
+  "fecha": "2026-11-17",
+  "dia": "martes",
+  "slot": 1,
+  "archivo": "Fiscalizacion_Web_DM_desfibriladores-dea_17-11-2026.xlsx",
+  "inspector": "mmedina@ispch.cl",
+  "hallazgos": 10,
+  "detectados": 47,
+  "notas": "Se descartaron unas 10 ofertas de sitios extranjeros sin venta a Chile (Soma Technology, Tactical Medicine, AM Nautical, Henry Schein, BNA Conecta AR, entre otras), y quedaron fuera los monitores-desfibriladores (Comen S5/S8, Meditech MD-7000, Zoll R/X, Mindray D30/D60) por no exigir registro. Mercado Libre y Yapo bloquearon el acceso (ver hoja Búsquedas Marketplace), y las fichas DEA de ferexpo.cl redirigen a la portada."
+}
