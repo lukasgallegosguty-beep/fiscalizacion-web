@@ -1,0 +1,12 @@
+{
+  "categoria": "kits-vih-profesional",
+  "nombre": "Kits VIH uso profesional",
+  "fecha": "2026-11-19",
+  "dia": "jueves",
+  "slot": 2,
+  "archivo": "Fiscalizacion_Web_DM_kits-vih-profesional_19-11-2026.xlsx",
+  "inspector": "mmedina@ispch.cl",
+  "hallazgos": 2,
+  "detectados": 2,
+  "notas": "Se descartaron por jurisdicción 5 ofertas extranjeras sin venta a Chile: Labomersa (Ecuador), HyM Care (Colombia), Medifacil/Amunet/Realy Tech (México) y Alltrade (EAU). Mercado Libre bloqueó el acceso (verificación de cuenta/403) y sus 5 publicaciones quedaron como pistas en Búsquedas Marketplace. testrapidovih.cl, insumedical.cl y jbhomekit.cl no fueron accesibles desde la red de la sesión. Alcosafe retiró sus tests VIH (404). La publicación OnSite de farmalatina.cl (alerta 78, con bajada pedida) sigue en línea al 19-11."
+}
