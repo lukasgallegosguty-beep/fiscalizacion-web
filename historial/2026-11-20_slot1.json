@@ -1,0 +1,12 @@
+{
+  "categoria": "preservativos-masculinos",
+  "nombre": "Preservativos masculinos (látex y sintéticos)",
+  "fecha": "2026-11-20",
+  "dia": "viernes",
+  "slot": 1,
+  "archivo": "Fiscalizacion_Web_DM_preservativos-masculinos_20-11-2026.xlsx",
+  "inspector": "mmedina@ispch.cl",
+  "hallazgos": 10,
+  "detectados": 24,
+  "notas": "Se descartaron por jurisdicción unas 9 ofertas de sitios de España (ventadesechablesonline.com: Sensitex), Argentina (Farmacity, ML Argentina: Tulipán, Prime), Uruguay (Farmashop), México (Rappi, Benavides: Sico, Prudence) e importadoras internacionales (Ubuy, Cosmetis, Worldcondoms). Mercado Libre y Ripley bloquearon el acceso (403), Lider pidió verificación anti-robot, el catálogo de Tu Condón (Kyte) respondió 403 y La Casa de los Condones sigue caída; la mayoría de las fichas de condones de Paris.cl están dadas de baja (404)."
+}
