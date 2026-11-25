@@ -43,7 +43,7 @@ import re
 import sys
 from collections import Counter
 from datetime import date
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -141,6 +141,9 @@ RE_NARRACION = re.compile(
     r"|siguiente[s]? (hallazgo|producto|publicaci)|palabras clave", re.I)
 RE_RUIDO_SLUG = re.compile(
     r"^(p|up|producto|product|item|articulo|MLC[A-Z0-9]+|[A-Z]{2,4}\d{4,})$", re.I)
+# Lo que no es título dentro de un tramo: el código de Mercado Libre al inicio
+# («MLC-1743364847-guantes-…») y el sufijo «_JM» al final.
+RE_ID_SLUG = re.compile(r"^MLC-?\d+-|_[A-Z]{1,3}$", re.I)
 
 
 def _segmentar_observacion(obs):
@@ -194,11 +197,17 @@ def _nombre_del_item(texto, url):
         # dice algo del producto. Un nombre equivocado es peor que uno feo.
         if 3 < len(antes) <= 120 and not RE_NARRACION.search(antes):
             return antes
-    partes = [x for x in urlparse(url).path.split("/") if x]
-    for parte in partes:
-        if RE_RUIDO_SLUG.match(parte) or "-" not in parte:
-            continue
-        nombre = parte.replace("-", " ").strip()
+    partes = [unquote(x) for x in urlparse(url).path.split("/") if x]
+    candidatos = [x for x in partes if "-" in x and not RE_RUIDO_SLUG.match(x)]
+    if candidatos:
+        # El título es el tramo con más palabras, no el primero: en Yapo el
+        # primero es la sección («salud-belleza-belleza») y en Falabella, el
+        # país («falabella-cl»). Así salieron nueve casos del cierre de noviembre.
+        # En un empate gana el último: el producto va después de la sección.
+        parte = max(enumerate(candidatos),
+                    key=lambda ix: (len([w for w in ix[1].split("-") if w]), ix[0]))[1]
+        parte = RE_ID_SLUG.sub("", parte)
+        nombre = " ".join(parte.replace("-", " ").replace("*", " ").split())
         if len(nombre) > 3:
             return f"{nombre[0].upper()}{nombre[1:]} (deducido del enlace)"
     return "(no consignado por el inspector)"
